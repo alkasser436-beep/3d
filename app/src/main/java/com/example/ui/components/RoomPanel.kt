@@ -1,8 +1,10 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -41,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,6 +54,7 @@ import com.example.model.OpeningType
 import com.example.model.RoomDesign
 import com.example.model.RoomType
 import com.example.model.WallId
+import com.example.ui.i18n.LocalAppStrings
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -65,6 +69,7 @@ fun RoomPanel(
   onApplyTemplate: (RoomTemplate) -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalAppStrings.current
   Column(
     modifier = modifier
       .verticalScroll(rememberScrollState())
@@ -78,7 +83,7 @@ fun RoomPanel(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        text = "Units",
+        text = strings.unitsTitle,
         style = MaterialTheme.typography.titleSmall,
       )
       SingleChoiceSegmentedButtonRow(modifier = Modifier.testTag("unit_segmented")) {
@@ -96,7 +101,7 @@ fun RoomPanel(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      Text("Room Type", style = MaterialTheme.typography.titleSmall)
+      Text(strings.roomTypeTitle, style = MaterialTheme.typography.titleSmall)
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -113,11 +118,7 @@ fun RoomPanel(
             onClick = { onRoomTypeChange(type) },
             label = {
               Text(
-                text = when (type) {
-                  RoomType.KITCHEN -> "Kitchen"
-                  RoomType.BEDROOM -> "Bedroom"
-                  RoomType.LIVING_ROOM -> "Living"
-                },
+                text = strings.roomTypeLabel(type),
                 style = MaterialTheme.typography.labelMedium,
               )
             },
@@ -138,12 +139,12 @@ fun RoomPanel(
 
     // Room Dimensions
     SectionTitle(
-      title = "Room Dimensions",
-      subtitle = "3D walls, floor & ceiling update live as you adjust",
+      title = strings.roomDimensionsTitle,
+      subtitle = strings.roomDimensionsSub,
     )
 
     DimensionSliderInput(
-      label = "Width (Left ↔ Right)",
+      label = strings.widthLabel,
       valueMeters = design.widthMeters,
       rangeMeters = 2.0f..12.0f,
       unit = design.unit,
@@ -152,7 +153,7 @@ fun RoomPanel(
     )
 
     DimensionSliderInput(
-      label = "Length (Back ↔ Front)",
+      label = strings.lengthLabel,
       valueMeters = design.lengthMeters,
       rangeMeters = 2.0f..12.0f,
       unit = design.unit,
@@ -161,7 +162,7 @@ fun RoomPanel(
     )
 
     DimensionSliderInput(
-      label = "Wall Height",
+      label = strings.heightLabel,
       valueMeters = design.wallHeightMeters,
       rangeMeters = 2.2f..4.5f,
       unit = design.unit,
@@ -171,8 +172,8 @@ fun RoomPanel(
 
     // Doors & Windows
     SectionTitle(
-      title = "Doors & Windows",
-      subtitle = "Real wall cutouts with natural daylight panes",
+      title = strings.doorsWindowsTitle,
+      subtitle = strings.doorsWindowsSub,
     )
 
     Row(
@@ -188,7 +189,7 @@ fun RoomPanel(
       ) {
         Icon(Icons.Outlined.Window, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
-        Text("+ Window")
+        Text(strings.addWindowBtn)
       }
       OutlinedButton(
         onClick = { onAddOpening(OpeningType.DOOR, WallId.EAST) },
@@ -199,7 +200,7 @@ fun RoomPanel(
       ) {
         Icon(Icons.Outlined.DoorFront, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
-        Text("+ Door")
+        Text(strings.addDoorBtn)
       }
     }
 
@@ -263,7 +264,7 @@ fun RoomPanel(
           val maxOffset = ((span - op.widthMeters) * 0.5f - 0.15f).coerceAtLeast(0.1f)
 
           Text(
-            text = "Position Along Wall",
+            text = strings.positionAlongWallLabel,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -278,24 +279,39 @@ fun RoomPanel(
 
     // Preset Room Templates
     SectionTitle(
-      title = "Preset Room Templates",
-      subtitle = "1-tap starter designs you can customize freely",
+      title = strings.presetTemplatesTitle,
+      subtitle = strings.presetTemplatesSub,
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
       DesignTemplates.templates.forEach { tpl ->
         val isMatch = tpl.roomType == design.roomType
+        val tplColor = when (tpl.roomType) {
+          RoomType.KITCHEN -> MaterialTheme.colorScheme.primary
+          RoomType.BEDROOM -> MaterialTheme.colorScheme.secondary
+          RoomType.LIVING_ROOM -> MaterialTheme.colorScheme.tertiary
+        }
+        val tplContainer = when (tpl.roomType) {
+          RoomType.KITCHEN -> MaterialTheme.colorScheme.primaryContainer
+          RoomType.BEDROOM -> MaterialTheme.colorScheme.secondaryContainer
+          RoomType.LIVING_ROOM -> MaterialTheme.colorScheme.tertiaryContainer
+        }
+        val tplIcon = when (tpl.roomType) {
+          RoomType.KITCHEN -> Icons.Outlined.Kitchen
+          RoomType.BEDROOM -> Icons.Outlined.Bed
+          RoomType.LIVING_ROOM -> Icons.Outlined.Weekend
+        }
         Card(
           colors = CardDefaults.cardColors(
             containerColor = if (isMatch) {
-              MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+              tplContainer.copy(alpha = 0.42f)
             } else {
               MaterialTheme.colorScheme.surface
             },
           ),
           border = BorderStroke(
-            width = 1.dp,
-            color = if (isMatch) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant,
+            width = if (isMatch) 1.5.dp else 1.dp,
+            color = if (isMatch) tplColor else MaterialTheme.colorScheme.outlineVariant,
           ),
           shape = RoundedCornerShape(14.dp),
           modifier = Modifier
@@ -308,6 +324,21 @@ fun RoomPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
           ) {
+            Box(
+              modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(tplContainer.copy(alpha = 0.8f)),
+              contentAlignment = Alignment.Center,
+            ) {
+              Icon(
+                imageVector = tplIcon,
+                contentDescription = null,
+                tint = tplColor,
+                modifier = Modifier.size(19.dp),
+              )
+            }
+            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
               Text(
                 text = tpl.title,
@@ -329,7 +360,7 @@ fun RoomPanel(
             ) {
               Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))
               Spacer(Modifier.width(4.dp))
-              Text("Load", style = MaterialTheme.typography.labelMedium)
+              Text(strings.loadTemplateBtn, style = MaterialTheme.typography.labelMedium)
             }
           }
         }

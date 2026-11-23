@@ -41,11 +41,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,12 +62,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.model.CabinetStyle
 import com.example.model.FurnitureCategory
 import com.example.model.FurnitureItem
 import com.example.model.FurnitureKind
 import com.example.model.RoomDesign
 import com.example.model.RoomType
 import com.example.model.SelectionTarget
+import com.example.ui.i18n.LocalAppStrings
 import kotlin.math.roundToInt
 
 private fun iconForKind(kind: FurnitureKind): ImageVector = when (kind) {
@@ -99,6 +103,7 @@ fun FurniturePanel(
   onOpenMaterialsForSelected: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalAppStrings.current
   val defaultCategory = when (design.roomType) {
     RoomType.KITCHEN -> FurnitureCategory.KITCHEN
     RoomType.BEDROOM -> FurnitureCategory.BEDROOM
@@ -120,10 +125,10 @@ fun FurniturePanel(
     if (selectedItem != null) {
       Card(
         colors = CardDefaults.cardColors(
-          containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+          containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f),
         ),
-        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
+        shape = RoundedCornerShape(18.dp),
       ) {
         Column(
           modifier = Modifier.padding(14.dp),
@@ -185,7 +190,7 @@ fun FurniturePanel(
             ) {
               Icon(Icons.AutoMirrored.Outlined.RotateRight, contentDescription = null, modifier = Modifier.size(18.dp))
               Spacer(Modifier.width(6.dp))
-              Text("Rotate 90°")
+              Text(strings.rotate90Btn)
             }
             OutlinedButton(
               onClick = onOpenMaterialsForSelected,
@@ -195,12 +200,19 @@ fun FurniturePanel(
             ) {
               Icon(Icons.Outlined.Palette, contentDescription = null, modifier = Modifier.size(18.dp))
               Spacer(Modifier.width(6.dp))
-              Text("Material")
+              Text(strings.materialBtn, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
           }
 
+          FurnitureStructureControls(
+            item = selectedItem,
+            onUpdateItem = { transform ->
+              onUpdateFurniture(selectedItem.id, null, transform)
+            },
+          )
+
           DimensionSliderInput(
-            label = "Width",
+            label = strings.boxWidthLabel,
             valueMeters = selectedItem.widthMeters,
             rangeMeters = 0.30f..design.widthMeters,
             unit = design.unit,
@@ -210,7 +222,7 @@ fun FurniturePanel(
             testTagPrefix = "item_width",
           )
           DimensionSliderInput(
-            label = "Depth",
+            label = strings.boxDepthLabel,
             valueMeters = selectedItem.depthMeters,
             rangeMeters = 0.25f..design.lengthMeters,
             unit = design.unit,
@@ -220,7 +232,7 @@ fun FurniturePanel(
             testTagPrefix = "item_depth",
           )
           DimensionSliderInput(
-            label = "Height",
+            label = strings.boxHeightLabel,
             valueMeters = selectedItem.heightMeters,
             rangeMeters = 0.02f..design.wallHeightMeters,
             unit = design.unit,
@@ -234,7 +246,7 @@ fun FurniturePanel(
           val halfL = (design.lengthMeters * 0.5f - 0.15f).coerceAtLeast(0.5f)
 
           Text(
-            text = "Position X (${formatDimension(selectedItem.xMeters, design.unit)}${design.unit.suffix})",
+            text = "${strings.posLeftRightLabel} (${formatDimension(selectedItem.xMeters, design.unit)}${design.unit.suffix})",
             style = MaterialTheme.typography.bodySmall,
           )
           Slider(
@@ -247,7 +259,7 @@ fun FurniturePanel(
           )
 
           Text(
-            text = "Position Z (${formatDimension(selectedItem.zMeters, design.unit)}${design.unit.suffix})",
+            text = "${strings.posBackFrontLabel} (${formatDimension(selectedItem.zMeters, design.unit)}${design.unit.suffix})",
             style = MaterialTheme.typography.bodySmall,
           )
           Slider(
@@ -261,7 +273,7 @@ fun FurniturePanel(
 
           if (selectedItem.kind == FurnitureKind.UPPER_CABINET || selectedItem.yMeters > 0.01f) {
             DimensionSliderInput(
-              label = "Mount Elevation (Y)",
+              label = strings.mountHeightLabel,
               valueMeters = selectedItem.yMeters,
               rangeMeters = 0f..(design.wallHeightMeters - 0.4f).coerceAtLeast(0.5f),
               unit = design.unit,
@@ -273,7 +285,7 @@ fun FurniturePanel(
           }
 
           Text(
-            text = "Rotation (${selectedItem.rotationDeg.roundToInt()}°)",
+            text = "${strings.rotationLabel} (${selectedItem.rotationDeg.roundToInt()}°)",
             style = MaterialTheme.typography.bodySmall,
           )
           Slider(
@@ -291,8 +303,8 @@ fun FurniturePanel(
     // Scene Items Picker
     if (design.furniture.isNotEmpty()) {
       SectionTitle(
-        title = "Placed in Room (${design.furniture.size})",
-        subtitle = "Tap any item in 3D or below to edit size, position & finish",
+        title = "${strings.placedItemsTitle} (${design.furniture.size})",
+        subtitle = strings.placedItemsSub,
       )
       FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -315,15 +327,15 @@ fun FurniturePanel(
 
     // Quick-Add Furniture & Cabinets Catalog
     SectionTitle(
-      title = "Add Furniture & Cabinets",
-      subtitle = "Tap to place into your room instantly",
+      title = strings.addElementTitle,
+      subtitle = strings.addElementSub,
     )
 
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       FilterChip(
         selected = activeCategory == null,
         onClick = { activeCategory = null },
-        label = { Text("All") },
+        label = { Text(strings.starwoodAllFilter) },
       )
       FurnitureCategory.entries.forEach { cat ->
         FilterChip(
@@ -345,9 +357,19 @@ fun FurniturePanel(
           horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           pair.forEach { kind ->
+            val catTint = when (kind.category) {
+              FurnitureCategory.KITCHEN -> MaterialTheme.colorScheme.primary
+              FurnitureCategory.BEDROOM -> MaterialTheme.colorScheme.secondary
+              FurnitureCategory.LIVING -> MaterialTheme.colorScheme.tertiary
+            }
+            val catContainer = when (kind.category) {
+              FurnitureCategory.KITCHEN -> MaterialTheme.colorScheme.primaryContainer
+              FurnitureCategory.BEDROOM -> MaterialTheme.colorScheme.secondaryContainer
+              FurnitureCategory.LIVING -> MaterialTheme.colorScheme.tertiaryContainer
+            }
             Card(
               colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+              border = BorderStroke(1.dp, catTint.copy(alpha = 0.24f)),
               shape = RoundedCornerShape(14.dp),
               modifier = Modifier
                 .weight(1f)
@@ -356,38 +378,56 @@ fun FurniturePanel(
             ) {
               Column(
                 modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
               ) {
                 Row(
                   modifier = Modifier.fillMaxWidth(),
                   horizontalArrangement = Arrangement.SpaceBetween,
                   verticalAlignment = Alignment.CenterVertically,
                 ) {
-                  Icon(
-                    imageVector = iconForKind(kind),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
+                  Box(
+                    modifier = Modifier
+                      .size(34.dp)
+                      .clip(RoundedCornerShape(10.dp))
+                      .background(catContainer.copy(alpha = 0.72f)),
+                    contentAlignment = Alignment.Center,
+                  ) {
+                    Icon(
+                      imageVector = iconForKind(kind),
+                      contentDescription = null,
+                      tint = catTint,
+                      modifier = Modifier.size(19.dp),
+                    )
+                  }
+                  Box(
+                    modifier = Modifier
+                      .size(26.dp)
+                      .clip(CircleShape)
+                      .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                  ) {
+                    Icon(
+                      imageVector = Icons.Outlined.Add,
+                      contentDescription = "Add ${kind.displayName}",
+                      tint = catTint,
+                      modifier = Modifier.size(16.dp),
+                    )
+                  }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                  Text(
+                    text = kind.displayName,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                   )
-                  Icon(
-                    imageVector = Icons.Outlined.Add,
-                    contentDescription = "Add ${kind.displayName}",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
+                  Text(
+                    text = "${formatDimension(kind.defaultW, design.unit)}×${formatDimension(kind.defaultD, design.unit)}${design.unit.suffix}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                   )
                 }
-                Text(
-                  text = kind.displayName,
-                  style = MaterialTheme.typography.labelLarge,
-                  fontWeight = FontWeight.SemiBold,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                  text = "${formatDimension(kind.defaultW, design.unit)}×${formatDimension(kind.defaultD, design.unit)}${design.unit.suffix}",
-                  style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
               }
             }
           }
@@ -400,3 +440,180 @@ fun FurniturePanel(
     Spacer(Modifier.height(12.dp))
   }
 }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun FurnitureStructureControls(
+  item: FurnitureItem,
+  onUpdateItem: ((FurnitureItem) -> FurnitureItem) -> Unit,
+) {
+  val strings = LocalAppStrings.current
+  val hasDoors = item.kind in setOf(
+    FurnitureKind.STRAIGHT_COUNTER,
+    FurnitureKind.L_COUNTER,
+    FurnitureKind.KITCHEN_ISLAND,
+    FurnitureKind.UPPER_CABINET,
+    FurnitureKind.TALL_PANTRY,
+    FurnitureKind.WARDROBE,
+    FurnitureKind.TV_CONSOLE,
+  )
+  val hasDrawers = item.kind in setOf(
+    FurnitureKind.STRAIGHT_COUNTER,
+    FurnitureKind.L_COUNTER,
+    FurnitureKind.KITCHEN_ISLAND,
+    FurnitureKind.TALL_PANTRY,
+    FurnitureKind.NIGHTSTAND,
+    FurnitureKind.DRESSER,
+  )
+  val isCabinetOrStorage = hasDoors || hasDrawers
+  val styleOptions: List<Pair<CabinetStyle, String>> = when (item.kind) {
+    FurnitureKind.SOFA -> listOf(
+      CabinetStyle.HANDLELESS_GOLA to "Standard",
+      CabinetStyle.SHAKER_FRAME to "L-Chaise",
+      CabinetStyle.OPEN_SHELVING to "Armless",
+    )
+    FurnitureKind.DINING_TABLE, FurnitureKind.COFFEE_TABLE -> listOf(
+      CabinetStyle.HANDLELESS_GOLA to "Solid Top",
+      CabinetStyle.GLASS_DISPLAY to "Glass Top",
+      CabinetStyle.OPEN_SHELVING to "Pedestal",
+    )
+    else -> if (isCabinetOrStorage) {
+      CabinetStyle.entries.map { it to it.label }
+    } else emptyList()
+  }
+
+  if (styleOptions.isEmpty() && !hasDoors && !hasDrawers) return
+
+  HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+  if (styleOptions.isNotEmpty()) {
+    Text(
+      text = if (isCabinetOrStorage) strings.cabinetShapeStyleTitle else strings.shapeStyleTitle,
+      style = MaterialTheme.typography.labelLarge,
+      fontWeight = FontWeight.SemiBold,
+    )
+    FlowRow(
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+      styleOptions.forEach { (styleVal, label) ->
+        val effectiveSelected = if (styleVal == CabinetStyle.OPEN_SHELVING && isCabinetOrStorage) {
+          item.style == CabinetStyle.OPEN_SHELVING || (!item.showDoors && !item.showDrawers)
+        } else {
+          item.style == styleVal
+        }
+        FilterChip(
+          selected = effectiveSelected,
+          onClick = {
+            onUpdateItem { cur ->
+              if (styleVal == CabinetStyle.OPEN_SHELVING && isCabinetOrStorage) {
+                cur.copy(style = styleVal, showDoors = false, showDrawers = false)
+              } else {
+                val restoreDoors = if (cur.style == CabinetStyle.OPEN_SHELVING && !cur.showDoors) true else cur.showDoors
+                val restoreDrawers = if (cur.style == CabinetStyle.OPEN_SHELVING && !cur.showDrawers) true else cur.showDrawers
+                cur.copy(style = styleVal, showDoors = restoreDoors, showDrawers = restoreDrawers)
+              }
+            }
+          },
+          label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+          modifier = Modifier.testTag("style_${styleVal.name.lowercase()}"),
+        )
+      }
+    }
+  }
+
+  if (hasDoors || hasDrawers) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      if (hasDoors) {
+        val doorsEnabled = item.style != CabinetStyle.OPEN_SHELVING && item.showDoors
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Column(modifier = Modifier.weight(1f)) {
+            Text(strings.doorsShuttersLabel, style = MaterialTheme.typography.bodyMedium)
+            Text(
+              text = if (doorsEnabled) strings.doorsVisibleSub else strings.doorsRemovedSub,
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          Switch(
+            checked = doorsEnabled,
+            onCheckedChange = { checked ->
+              onUpdateItem { cur ->
+                val nextStyle = if (checked && cur.style == CabinetStyle.OPEN_SHELVING) {
+                  cur.kind.defaultStyle.takeIf { it != CabinetStyle.OPEN_SHELVING } ?: CabinetStyle.HANDLELESS_GOLA
+                } else if (!checked && !cur.showDrawers) {
+                  CabinetStyle.OPEN_SHELVING
+                } else cur.style
+                cur.copy(showDoors = checked, style = nextStyle)
+              }
+            },
+            modifier = Modifier.testTag("toggle_doors_switch"),
+          )
+        }
+      }
+
+      if (hasDrawers) {
+        val drawersEnabled = item.style != CabinetStyle.OPEN_SHELVING && item.showDrawers
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Column(modifier = Modifier.weight(1f)) {
+            Text(strings.drawersLabel, style = MaterialTheme.typography.bodyMedium)
+            Text(
+              text = if (drawersEnabled) strings.drawersVisibleSub else strings.drawersRemovedSub,
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          Switch(
+            checked = drawersEnabled,
+            onCheckedChange = { checked ->
+              onUpdateItem { cur ->
+                val nextStyle = if (checked && cur.style == CabinetStyle.OPEN_SHELVING) {
+                  cur.kind.defaultStyle.takeIf { it != CabinetStyle.OPEN_SHELVING } ?: CabinetStyle.HANDLELESS_GOLA
+                } else if (!checked && (!hasDoors || !cur.showDoors)) {
+                  CabinetStyle.OPEN_SHELVING
+                } else cur.style
+                cur.copy(showDrawers = checked, style = nextStyle)
+              }
+            },
+            modifier = Modifier.testTag("toggle_drawers_switch"),
+          )
+        }
+      }
+
+      val frontsVisible = (hasDoors && item.showDoors && item.style != CabinetStyle.OPEN_SHELVING) ||
+        (hasDrawers && item.showDrawers && item.style != CabinetStyle.OPEN_SHELVING)
+      if (frontsVisible) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Column(modifier = Modifier.weight(1f)) {
+            Text(strings.metalHandlesLabel, style = MaterialTheme.typography.bodyMedium)
+            Text(
+              text = if (item.showHandles) strings.handlesSteelSub else strings.handlesNoneSub,
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          Switch(
+            checked = item.showHandles,
+            onCheckedChange = { checked ->
+              onUpdateItem { cur -> cur.copy(showHandles = checked) }
+            },
+            modifier = Modifier.testTag("toggle_handles_switch"),
+          )
+        }
+      }
+    }
+  }
+}
+

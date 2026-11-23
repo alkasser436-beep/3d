@@ -8,12 +8,18 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ai.PhotorealisticRenderRepository
+import com.example.data.CabinetBoxPreset
 import com.example.data.DesignRepository
 import com.example.data.DesignTemplates
+import com.example.data.LebaneseGraniteSlab
 import com.example.data.RoomTemplate
+import com.example.model.AppLanguage
+import com.example.model.CabinetStyle
 import com.example.model.CameraPreset
 import com.example.model.FurnitureItem
 import com.example.model.FurnitureKind
+import com.example.model.KitchenSpecs
+import com.example.model.LebaneseOrganizer
 import com.example.model.LengthUnit
 import com.example.model.LightingPreset
 import com.example.model.MaterialFinish
@@ -44,6 +50,10 @@ private const val TAG = "DesignerViewModel"
 
 enum class StudioTab(val label: String) {
   ROOM("Room"),
+  CABINETS("Cabinets"),
+  ALUMINUM("Aluminum"),
+  GRANITE("Granite"),
+  SINK_PULLOUT("Sink & Pull-Out"),
   FURNITURE("Furniture"),
   MATERIALS("Materials"),
   RENDER("Render"),
@@ -65,6 +75,7 @@ sealed interface AiRenderState {
 
 data class DesignerUiState(
   val design: RoomDesign = DesignTemplates.defaultForRoomType(RoomType.KITCHEN),
+  val appLanguage: AppLanguage = AppLanguage.ENGLISH,
   val selectedTarget: SelectionTarget = SelectionTarget.Walls,
   val activeTab: StudioTab = StudioTab.ROOM,
   val canUndo: Boolean = false,
@@ -91,8 +102,8 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
   private val _cameraCommands = MutableSharedFlow<CameraPreset>(extraBufferCapacity = 4)
   val cameraCommands: SharedFlow<CameraPreset> = _cameraCommands.asSharedFlow()
 
-  private val _snapshotRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 2)
-  val snapshotRequests: SharedFlow<Unit> = _snapshotRequests.asSharedFlow()
+  private val _snapshotRequests = MutableSharedFlow<Int>(extraBufferCapacity = 2)
+  val snapshotRequests: SharedFlow<Int> = _snapshotRequests.asSharedFlow()
 
   private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
   val messages: SharedFlow<String> = _messages.asSharedFlow()
@@ -103,9 +114,12 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
   private var lastCoalesceTimeMs: Long = 0L
   private var autoSaveJob: Job? = null
   private var aiRenderJob: Job? = null
+  private var snapshotWatchdogJob: Job? = null
   private var pendingSnapshotPurpose: SnapshotPurpose = SnapshotPurpose.EXPORT_PNG
 
   init {
+    val savedLang = repository.loadAppLanguage()
+    _uiState.update { it.copy(appLanguage = savedLang) }
     viewModelScope.launch {
       val autoSaved = repository.loadAutoSave()
       val savedList = repository.listSavedDesigns()
@@ -116,6 +130,11 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
         )
       }
     }
+  }
+
+  fun setAppLanguage(language: AppLanguage) {
+    repository.saveAppLanguage(language)
+    _uiState.update { it.copy(appLanguage = language) }
   }
 
   private fun commitDesignChange(
@@ -295,6 +314,69 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
     _uiState.update { it.copy(selectedTarget = SelectionTarget.Furniture(item.id)) }
   }
 
+  fun addCabinetBoxPreset(preset: CabinetBoxPreset) {
+    val base = DesignTemplates.createFurnitureItem(preset.kind, _uiState.value.design.furniture.size)
+    val item = base.copy(
+      label = preset.title,
+      widthMeters = preset.widthM,
+      depthMeters = preset.depthM,
+      heightMeters = preset.heightM,
+      yMeters = preset.yM,
+    )
+    commitDesignChange { d ->
+      d.copy(furniture = d.furniture + item)
+    }
+    _uiState.update { it.copy(selectedTarget = SelectionTarget.Furniture(item.id)) }
+    _messages.tryEmit("Added ${preset.title}")
+  }
+
+  fun updateKitchenSpecs(transform: (KitchenSpecs) -> KitchenSpecs) {
+    commitDesignChange("kitchen_specs") { d ->
+      d.copy(kitchenSpecs = transform(d.kitchenSpecs))
+    }
+  }
+
+  fun applyGlassFramesToUpperCabinets() {
+    commitDesignChange { d ->
+      d.copy(
+        furniture = d.furniture.map { item ->
+          if (item.kind == FurnitureKind.UPPER_CABINET) {
+            item.copy(style = CabinetStyle.GLASS_DISPLAY, showDoors = true)
+          } else item
+        },
+      )
+    }
+    _messages.tryEmit("Applied aluminum glass frames to upper cabinets")
+  }
+
+  fun applyLebaneseGranite(slab: LebaneseGraniteSlab) {
+    val mat = SurfaceMaterial(slab.finish, slab.hexColor)
+    commitDesignChange("granite_slab") { d ->
+      d.copy(
+        countertopMaterial = mat,
+        furniture = d.furniture.map { item ->
+          val isKitchenCounter = item.kind in setOf(
+            FurnitureKind.STRAIGHT_COUNTER,
+            FurnitureKind.L_COUNTER,
+            FurnitureKind.KITCHEN_ISLAND,
+          )
+          if (isKitchenCounter && item.secondaryMaterial != null) {
+            item.copy(secondaryMaterial = mat)
+          } else item
+        },
+      )
+    }
+    _messages.tryEmit("Applied ${slab.name} to countertops")
+  }
+
+  fun toggleOrganizer(organizer: LebaneseOrganizer) {
+    commitDesignChange { d ->
+      val cur = d.kitchenSpecs.organizers
+      val next = if (organizer in cur) cur - organizer else cur + organizer
+      d.copy(kitchenSpecs = d.kitchenSpecs.copy(organizers = next))
+    }
+  }
+
   fun updateFurniture(
     id: String,
     coalesceKey: String? = null,
@@ -445,36 +527,96 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
   }
 
   fun requestSnapshot() {
+    if (_uiState.value.isCapturingSnapshot) return
     pendingSnapshotPurpose = SnapshotPurpose.EXPORT_PNG
     _uiState.update { it.copy(isCapturingSnapshot = true) }
-    _snapshotRequests.tryEmit(Unit)
+    startSnapshotWatchdog(SnapshotPurpose.EXPORT_PNG)
+    _snapshotRequests.tryEmit(1600)
   }
 
   fun requestAiPhotorealisticRender() {
     if (_uiState.value.aiRenderState is AiRenderState.Loading) return
     aiRenderJob?.cancel()
+    snapshotWatchdogJob?.cancel()
     pendingSnapshotPurpose = SnapshotPurpose.AI_RENDER
     val turnedOnRealistic = !_uiState.value.design.realisticView
     if (turnedOnRealistic) {
       commitDesignChange { it.copy(realisticView = true) }
     }
     _uiState.update { it.copy(aiRenderState = AiRenderState.Loading(null)) }
+    startSnapshotWatchdog(SnapshotPurpose.AI_RENDER)
     viewModelScope.launch {
-      if (turnedOnRealistic) delay(160L)
-      _snapshotRequests.tryEmit(Unit)
+      if (turnedOnRealistic) delay(280L)
+      _snapshotRequests.tryEmit(1080)
+    }
+  }
+
+  private fun startSnapshotWatchdog(purpose: SnapshotPurpose) {
+    snapshotWatchdogJob?.cancel()
+    snapshotWatchdogJob = viewModelScope.launch {
+      delay(10_000L)
+      val lang = _uiState.value.appLanguage
+      if (purpose == SnapshotPurpose.AI_RENDER) {
+        if (_uiState.value.aiRenderState is AiRenderState.Loading &&
+          (_uiState.value.aiRenderState as AiRenderState.Loading).sourceBitmap == null
+        ) {
+          pendingSnapshotPurpose = SnapshotPurpose.EXPORT_PNG
+          _uiState.update {
+            it.copy(
+              aiRenderState = AiRenderState.Error(
+                localizedMsg(
+                  lang,
+                  ar = "تعذّر التقاط صورة من العرض ثلاثي الأبعاد. تأكد من ظهور الغرفة في الشاشة ثم أعد المحاولة.",
+                  fr = "Impossible de capturer la vue 3D. Assurez-vous que la pièce est visible et réessayez.",
+                  en = "Could not capture the 3D viewport image in time. Make sure the 3D room is visible and try again.",
+                ),
+                null,
+              ),
+            )
+          }
+        }
+      } else {
+        if (_uiState.value.isCapturingSnapshot) {
+          _uiState.update { it.copy(isCapturingSnapshot = false) }
+          _messages.tryEmit(
+            localizedMsg(
+              lang,
+              ar = "انتهى وقت التقاط الصورة، حاول مرة أخرى",
+              fr = "Délai de capture dépassé, réessayez",
+              en = "Snapshot timed out, please try again",
+            ),
+          )
+        }
+      }
     }
   }
 
   fun onSnapshotCaptured(dataUrl: String) {
+    snapshotWatchdogJob?.cancel()
+    snapshotWatchdogJob = null
     viewModelScope.launch {
-      val base64 = dataUrl.substringAfter("base64,", "")
-      val bytes = runCatching { Base64.decode(base64, Base64.DEFAULT) }.getOrNull()
+      val lang = _uiState.value.appLanguage
+      val validPrefix = dataUrl.startsWith("data:image/", ignoreCase = true)
+      val base64 = if (validPrefix) dataUrl.substringAfter("base64,", "") else ""
+      val bytes = if (base64.isNotBlank()) {
+        runCatching { Base64.decode(base64, Base64.DEFAULT) }.getOrNull()
+      } else null
+
       if (pendingSnapshotPurpose == SnapshotPurpose.AI_RENDER) {
         pendingSnapshotPurpose = SnapshotPurpose.EXPORT_PNG
-        if (bytes == null) {
+        if (_uiState.value.aiRenderState !is AiRenderState.Loading) return@launch
+        if (bytes == null || bytes.size <= 128) {
           _uiState.update {
             it.copy(
-              aiRenderState = AiRenderState.Error("Failed to capture 3D viewport image.", null),
+              aiRenderState = AiRenderState.Error(
+                localizedMsg(
+                  lang,
+                  ar = "فشل التقاط مشهد الغرفة ثلاثي الأبعاد. حرّك الكاميرا قليلاً واضغط صورة واقعية مجدداً.",
+                  fr = "Échec de la capture de la scène 3D. Déplacez légèrement la caméra et réessayez.",
+                  en = "Failed to capture 3D viewport image. Adjust the camera angle slightly and try again.",
+                ),
+                null,
+              ),
             )
           }
           return@launch
@@ -492,7 +634,22 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
         }
         runAiPhotorealisticSynthesis(sourceBmp)
       } else {
-        _uiState.update { it.copy(isCapturingSnapshot = false, snapshotPreviewPng = bytes) }
+        _uiState.update {
+          it.copy(
+            isCapturingSnapshot = false,
+            snapshotPreviewPng = bytes?.takeIf { b -> b.size > 128 },
+          )
+        }
+        if (bytes == null || bytes.size <= 128) {
+          _messages.tryEmit(
+            localizedMsg(
+              lang,
+              ar = "تعذّر حفظ اللقطة من العرض ثلاثي الأبعاد",
+              fr = "Échec de la capture PNG",
+              en = "Failed to capture 3D snapshot",
+            ),
+          )
+        }
       }
     }
   }
@@ -501,6 +658,7 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
     aiRenderJob?.cancel()
     aiRenderJob = viewModelScope.launch {
       _uiState.update { it.copy(aiRenderState = AiRenderState.Loading(sourceBmp)) }
+      val lang = _uiState.value.appLanguage
       try {
         val resultBmp = aiRenderRepository.renderPhotorealisticPhoto(sourceBmp, _uiState.value.design)
         val pngBytes = aiRenderRepository.bitmapToPngBytes(resultBmp)
@@ -512,7 +670,12 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
         _uiState.update {
           it.copy(
             aiRenderState = AiRenderState.Error(
-              "AI render timed out after 60 seconds. Please try again.",
+              localizedMsg(
+                lang,
+                ar = "انتهى وقت الاتصال بخدمة AI Photo (60 ثانية). تحقق من سرعة الإنترنت ثم أعد المحاولة.",
+                fr = "Délai dépassé (60s) pour le rendu IA. Vérifiez votre connexion et réessayez.",
+                en = "AI render timed out after 60 seconds. Check your connection and try again.",
+              ),
               sourceBmp,
             ),
           )
@@ -522,7 +685,12 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
         _uiState.update {
           it.copy(
             aiRenderState = AiRenderState.Error(
-              e.localizedMessage ?: "Rate limit or billing quota exceeded for Gemini image generation.",
+              localizedMsg(
+                lang,
+                ar = "تم تجاوز الحصة المتاحة لإنشاء صور Gemini (يتطلب تفعيل خطة Blaze في Firebase): ${e.localizedMessage ?: ""}".trim(),
+                fr = "Quota Gemini dépassé (plan Firebase Blaze requis) : ${e.localizedMessage ?: ""}".trim(),
+                en = e.localizedMessage ?: "Rate limit or billing quota exceeded for Gemini image generation.",
+              ),
               sourceBmp,
             ),
           )
@@ -531,12 +699,29 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
         throw e
       } catch (e: Exception) {
         Log.e(TAG, "AI photorealistic render failed", e)
+        val raw = e.localizedMessage ?: e.javaClass.simpleName
+        val friendly = when {
+          raw.contains("403", ignoreCase = true) ||
+            raw.contains("app check", ignoreCase = true) ||
+            raw.contains("attestation", ignoreCase = true) -> localizedMsg(
+            lang,
+            ar = "فشل التحقق الأمني (App Check 403): يتطلب تشغيل التطبيق عبر بيئة AI Studio أو إضافة رمز Debug App Check في Firebase Console.\n($raw)",
+            fr = "Échec App Check (403) : ajoutez le jeton debug App Check dans la console Firebase.\n($raw)",
+            en = "App Check attestation failed (403). Ensure the App Check debug token is registered in Firebase Console.\n($raw)",
+          )
+          raw.contains("network", ignoreCase = true) ||
+            raw.contains("unable to resolve host", ignoreCase = true) ||
+            raw.contains("timeout", ignoreCase = true) -> localizedMsg(
+            lang,
+            ar = "تعذّر الاتصال بالإنترنت للوصول إلى Gemini AI.\n($raw)",
+            fr = "Erreur réseau lors de la connexion à Gemini AI.\n($raw)",
+            en = "Network error connecting to Gemini AI.\n($raw)",
+          )
+          else -> raw
+        }
         _uiState.update {
           it.copy(
-            aiRenderState = AiRenderState.Error(
-              e.localizedMessage ?: "AI photorealistic render failed.",
-              sourceBmp,
-            ),
+            aiRenderState = AiRenderState.Error(friendly, sourceBmp),
           )
         }
       }
@@ -558,9 +743,18 @@ class DesignerViewModel(application: Application) : AndroidViewModel(application
   }
 
   fun cancelOrDismissAiRender() {
+    snapshotWatchdogJob?.cancel()
+    snapshotWatchdogJob = null
     aiRenderJob?.cancel()
     aiRenderJob = null
+    pendingSnapshotPurpose = SnapshotPurpose.EXPORT_PNG
     _uiState.update { it.copy(aiRenderState = AiRenderState.Idle) }
+  }
+
+  private fun localizedMsg(lang: AppLanguage, ar: String, fr: String, en: String): String = when (lang) {
+    AppLanguage.ARABIC -> ar
+    AppLanguage.FRENCH -> fr
+    AppLanguage.ENGLISH -> en
   }
 
   fun saveAiRenderToPhotos(onNeedSafFallback: (ByteArray) -> Unit) {

@@ -54,7 +54,7 @@ fun Viewport3D(
   design: RoomDesign,
   selectedTarget: SelectionTarget,
   cameraCommands: SharedFlow<CameraPreset>,
-  snapshotRequests: SharedFlow<Unit>,
+  snapshotRequests: SharedFlow<Int>,
   onElementSelected: (String, String) -> Unit,
   onSnapshotCaptured: (String) -> Unit,
   modifier: Modifier = Modifier,
@@ -85,11 +85,18 @@ fun Viewport3D(
     }
   }
 
-  LaunchedEffect(webViewRef, isPageReady) {
-    snapshotRequests.collect {
-      val wv = webViewRef ?: return@collect
-      if (isPageReady) {
-        wv.evaluateJavascript("window.captureSnapshot();", null)
+  LaunchedEffect(snapshotRequests) {
+    snapshotRequests.collect { maxDim ->
+      var waitedMs = 0
+      while ((webViewRef == null || !isPageReady) && waitedMs < 3500) {
+        kotlinx.coroutines.delay(100L)
+        waitedMs += 100
+      }
+      val wv = webViewRef
+      if (wv != null && isPageReady) {
+        wv.evaluateJavascript("window.captureSnapshot($maxDim);", null)
+      } else {
+        currentOnSnap("")
       }
     }
   }

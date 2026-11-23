@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import com.example.model.AppLanguage
 import com.example.model.RoomDesign
 import com.example.model.SavedDesignSummary
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +25,19 @@ class DesignRepository(private val context: Context) {
 
   private val autoSaveFile: File by lazy {
     File(context.filesDir, "autosave_design.json")
+  }
+
+  private val prefs by lazy {
+    context.getSharedPreferences("roomcraft_prefs", Context.MODE_PRIVATE)
+  }
+
+  fun loadAppLanguage(): AppLanguage {
+    val saved = prefs.getString("app_language", AppLanguage.ENGLISH.name)
+    return AppLanguage.entries.firstOrNull { it.name == saved } ?: AppLanguage.ENGLISH
+  }
+
+  fun saveAppLanguage(language: AppLanguage) {
+    prefs.edit().putString("app_language", language.name).apply()
   }
 
   suspend fun loadAutoSave(): RoomDesign? = withContext(Dispatchers.IO) {

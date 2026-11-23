@@ -169,14 +169,17 @@
       }
     }
 
+    const ks = currentDesign.kitchenSpecs || {};
+    const ksKey = `${ks.handleType || ''}_${ks.aluminumHex || ''}_${ks.aluminumPlinth !== false}_${ks.underCabinetLed !== false}_${ks.countertopThicknessCm || 3}_${ks.sinkWidthM || 0.58}_${!!ks.sinkDoubleBowl}_${!!ks.faucetIsSpringChef}_${(ks.organizers || []).join(',')}`;
+
     for (const item of items) {
-      const sig = `${item.kind}_${item.widthMeters.toFixed(3)}_${item.depthMeters.toFixed(3)}_${item.heightMeters.toFixed(3)}`;
+      const sig = `${item.kind}_${item.widthMeters.toFixed(3)}_${item.depthMeters.toFixed(3)}_${item.heightMeters.toFixed(3)}_${item.style || 'HANDLELESS_GOLA'}_${item.showDoors !== false}_${item.showDrawers !== false}_${!!item.showHandles}_${ksKey}`;
       const existing = furnitureCache.get(item.id);
       if (!existing || existing.sig !== sig) {
         if (existing) {
           for (const p of existing.parts) renderer.deleteBufferMesh(p.gpuMesh);
         }
-        const builtParts = global.GeometryLib.buildFurnitureParts(item).map(p => ({
+        const builtParts = global.GeometryLib.buildFurnitureParts(item, ks).map(p => ({
           gpuMesh: renderer.createBufferMesh(p.mesh),
           role: p.role,
           emissive: p.emissive
@@ -204,7 +207,15 @@
     const frameMat = global.MaterialsLib.getOrCreateTexture(gl, 'MATTE_PAINT', '#F5F3EE');
     const doorWoodMat = global.MaterialsLib.getOrCreateTexture(gl, 'WOOD_OAK', '#C8A57B');
     const glassMat = global.MaterialsLib.getOrCreateTexture(gl, 'GLOSSY_PAINT', '#C6E2F5');
+    const ks = currentDesign.kitchenSpecs || {};
     const metalMat = global.MaterialsLib.getOrCreateTexture(gl, 'BRUSHED_METAL', '#C8CDD4');
+    const alumProfileMat = global.MaterialsLib.getOrCreateTexture(gl, 'BRUSHED_METAL', ks.aluminumHex || '#22252A');
+    const sinkMat = ks.sinkIsBlackGranite
+      ? global.MaterialsLib.getOrCreateTexture(gl, 'GRANITE_SPECKLED', '#222428')
+      : metalMat;
+    const faucetMat = ks.faucetIsBlack
+      ? global.MaterialsLib.getOrCreateTexture(gl, 'BRUSHED_METAL', '#22252A')
+      : metalMat;
     const fabricAltMat = global.MaterialsLib.getOrCreateTexture(gl, 'FABRIC_WOVEN', '#F4F1EA');
     const darkScreenMat = global.MaterialsLib.getOrCreateTexture(gl, 'GLOSSY_PAINT', '#15181C');
     const lampMat = global.MaterialsLib.getOrCreateTexture(gl, 'FABRIC_WOVEN', '#FFF1D4');
@@ -304,7 +315,7 @@
       const itemCounterMat = item.secondaryMaterial ? resolveMaterialEntry(item.secondaryMaterial) : counterMat;
 
       if (currentDesign.realisticView) {
-        if (item.kind === 'UPPER_CABINET') {
+        if (item.kind === 'UPPER_CABINET' && ks.underCabinetLed !== false) {
           const ledBoost = currentDesign.lightingPreset === 'INDOOR_SPOTLIGHTS' ? 2.4 : 1.55;
           pointLights.push([item.xMeters, Math.max(0.98, (item.yMeters || 1.48) - 0.14), item.zMeters + 0.16, ledBoost]);
         } else if (item.kind === 'FLOOR_LAMP' || item.kind === 'NIGHTSTAND') {
@@ -321,6 +332,12 @@
           if (selectedTarget.type === 'COUNTERTOPS') isPartSel = true;
         } else if (part.role === 'metal') {
           matEntry = metalMat;
+        } else if (part.role === 'aluminum_profile' || part.role === 'aluminum_plinth') {
+          matEntry = alumProfileMat;
+        } else if (part.role === 'sink_basin') {
+          matEntry = sinkMat;
+        } else if (part.role === 'faucet_metal') {
+          matEntry = faucetMat;
         } else if (part.role === 'fabric_alt') {
           matEntry = fabricAltMat;
         } else if (part.role === 'dark_screen') {
@@ -329,15 +346,17 @@
           matEntry = lampMat;
         } else if (part.role === 'wood_legs') {
           matEntry = woodLegsMat;
+        } else if (part.role === 'window_glass') {
+          matEntry = glassMat;
         }
 
         renderList.push({
           gpuMesh: part.gpuMesh,
           modelMatrix: model,
           matEntry,
-          opacity: 1.0,
+          opacity: part.role === 'window_glass' ? 0.56 : 1.0,
           emissive: part.emissive || 0.0,
-          castShadow: true,
+          castShadow: part.role !== 'window_glass',
           selected: isPartSel
         });
       }
@@ -346,9 +365,11 @@
     return { renderList, pointLights };
   }
 
-  function renderOneFrame(timeSec) {
+  function renderOneFrame(timeSec, skipResize) {
     if (!renderer || !currentDesign) return;
-    resizeCanvas();
+    if (!skipResize) {
+      resizeCanvas();
+    }
 
     if (animCam) {
       const t = Math.min(1, (performance.now() - animCam.start) / animCam.dur);
@@ -624,21 +645,45 @@
     };
   };
 
-  global.captureSnapshot = function () {
-    if (!renderer || !currentDesign) return;
-    const prevW = canvas.width;
-    const prevH = canvas.height;
+  global.captureSnapshot = function (targetMaxDim) {
+    if (!renderer || !currentDesign) {
+      if (global.AndroidBridge && global.AndroidBridge.onSnapshotCaptured) {
+        global.AndroidBridge.onSnapshotCaptured('');
+      }
+      return;
+    }
+    const maxDim = Math.max(480, Math.min(1920, Number(targetMaxDim) || 1600));
+    const prevW = Math.max(2, canvas.width || Math.floor(canvas.clientWidth) || 800);
+    const prevH = Math.max(2, canvas.height || Math.floor(canvas.clientHeight) || 600);
     const aspect = prevW / Math.max(1, prevH);
-    const snapW = 1920;
-    const snapH = Math.max(720, Math.round(snapW / aspect));
-    resizeCanvas(snapW, snapH);
-    renderOneFrame(performance.now() * 0.001);
-    const dataUrl = canvas.toDataURL('image/png');
-    resizeCanvas(prevW, prevH);
-    renderOneFrame(performance.now() * 0.001);
+    let snapW;
+    let snapH;
+    if (aspect >= 1) {
+      snapW = maxDim;
+      snapH = Math.max(360, Math.round(maxDim / aspect));
+    } else {
+      snapH = maxDim;
+      snapW = Math.max(360, Math.round(maxDim * aspect));
+    }
+
+    let dataUrl = '';
+    try {
+      resizeCanvas(snapW, snapH);
+      renderOneFrame(performance.now() * 0.001, true);
+      if (gl) gl.finish();
+      dataUrl = canvas.toDataURL('image/png');
+    } catch (err) {
+      console.error('captureSnapshot error', err);
+      dataUrl = '';
+    } finally {
+      try {
+        resizeCanvas(prevW, prevH);
+        renderOneFrame(performance.now() * 0.001, true);
+      } catch (_) {}
+    }
 
     if (global.AndroidBridge && global.AndroidBridge.onSnapshotCaptured) {
-      global.AndroidBridge.onSnapshotCaptured(dataUrl);
+      global.AndroidBridge.onSnapshotCaptured(dataUrl || '');
     }
   };
 

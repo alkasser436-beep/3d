@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Colorize
+import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -60,9 +61,11 @@ import androidx.compose.ui.unit.dp
 import com.example.data.DesignTemplates
 import com.example.model.MaterialCategory
 import com.example.model.MaterialFinish
+import com.example.model.MfcBoardGrade
 import com.example.model.RoomDesign
 import com.example.model.SelectionTarget
 import com.example.model.SurfaceMaterial
+import com.example.ui.i18n.LocalAppStrings
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -73,12 +76,16 @@ fun MaterialsPanel(
   onApplyMaterial: (SurfaceMaterial, applyAsSecondary: Boolean) -> Unit,
   onUpdateFinishOnly: (MaterialFinish) -> Unit,
   onUpdateHexOnly: (String) -> Unit,
+  selectedMfcGrade: MfcBoardGrade = MfcBoardGrade.P7_MOISTURE_RESISTANT,
+  onSelectMfcGrade: (MfcBoardGrade) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalAppStrings.current
   val selectedFurniture = (selectedTarget as? SelectionTarget.Furniture)?.let { sel ->
     design.furniture.firstOrNull { it.id == sel.id }
   }
   var applyToSecondaryPart by remember(selectedFurniture?.id) { mutableStateOf(false) }
+  var starwoodDecorFilter by remember { mutableStateOf("All") }
 
   val currentMaterial = when (selectedTarget) {
     SelectionTarget.Walls -> design.wallMaterial
@@ -105,8 +112,8 @@ fun MaterialsPanel(
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
     SectionTitle(
-      title = "Apply Material To",
-      subtitle = "Tap in 3D or choose a surface below",
+      title = strings.applyMaterialToTitle,
+      subtitle = strings.applyMaterialToSub,
     )
 
     FlowRow(
@@ -114,10 +121,10 @@ fun MaterialsPanel(
       verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
       val targets = buildList {
-        add(SelectionTarget.Walls to "Walls")
-        add(SelectionTarget.Floor to "Floor")
-        add(SelectionTarget.Ceiling to "Ceiling")
-        add(SelectionTarget.AllCountertops to "Countertops")
+        add(SelectionTarget.Walls to strings.wallsLabel)
+        add(SelectionTarget.Floor to strings.floorLabel)
+        add(SelectionTarget.Ceiling to strings.ceilingLabel)
+        add(SelectionTarget.AllCountertops to strings.countertopsLabel)
         if (selectedFurniture != null) {
           add(SelectionTarget.Furniture(selectedFurniture.id) to selectedFurniture.label)
         }
@@ -144,13 +151,13 @@ fun MaterialsPanel(
         FilterChip(
           selected = !applyToSecondaryPart,
           onClick = { applyToSecondaryPart = false },
-          label = { Text("Cabinets / Frame") },
+          label = { Text(strings.partBodyLabel) },
           modifier = Modifier.weight(1f),
         )
         FilterChip(
           selected = applyToSecondaryPart,
           onClick = { applyToSecondaryPart = true },
-          label = { Text("Top / Bedding") },
+          label = { Text(strings.partTopLabel) },
           modifier = Modifier.weight(1f),
         )
       }
@@ -158,8 +165,8 @@ fun MaterialsPanel(
 
     // Finish Category Tabs
     SectionTitle(
-      title = "Real-World Finishes",
-      subtitle = "Active: ${currentMaterial.finish.label} (${currentMaterial.hexColor})",
+      title = strings.realWorldFinishesTitle,
+      subtitle = "${strings.activeMaterialPrefix} ${currentMaterial.finish.label} (${currentMaterial.hexColor})",
     )
 
     FlowRow(
@@ -170,7 +177,11 @@ fun MaterialsPanel(
         FilterChip(
           selected = activeCategory == cat,
           onClick = { activeCategory = cat },
-          label = { Text(cat.label, style = MaterialTheme.typography.labelMedium) },
+          label = { Text(strings.materialCategoryLabel(cat), style = MaterialTheme.typography.labelMedium) },
+          colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+          ),
           modifier = Modifier.testTag("mat_cat_${cat.name.lowercase()}"),
         )
       }
@@ -183,9 +194,9 @@ fun MaterialsPanel(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         listOf(
-          MaterialFinish.MATTE_PAINT to "Matte",
-          MaterialFinish.SATIN_PAINT to "Satin",
-          MaterialFinish.GLOSSY_PAINT to "Glossy",
+          MaterialFinish.MATTE_PAINT to strings.matteLabel,
+          MaterialFinish.SATIN_PAINT to strings.satinLabel,
+          MaterialFinish.GLOSSY_PAINT to strings.glossyLabel,
         ).forEach { (fin, label) ->
           FilterChip(
             selected = currentMaterial.finish == fin,
@@ -193,14 +204,97 @@ fun MaterialsPanel(
             label = { Text(label) },
             modifier = Modifier
               .weight(1f)
-              .testTag("paint_gloss_${label.lowercase()}"),
+              .testTag("paint_gloss_${fin.name.lowercase()}"),
           )
         }
       }
     }
 
+    // Starwood MFC Datasheet Card (P2 vs P7 + decor filter)
+    if (activeCategory == MaterialCategory.STARWOOD_MFC) {
+      Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)),
+      ) {
+        Column(
+          modifier = Modifier.padding(12.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Icon(Icons.Outlined.Verified, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            Column {
+              Text(strings.starwoodCardTitle, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+              Text(strings.starwoodCardSub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+          }
+          Text(
+            text = strings.starwoodCertsBadge,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium,
+          )
+          Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            MfcBoardGrade.entries.forEach { grade ->
+              val isGradeSelected = selectedMfcGrade == grade
+              Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = if (isGradeSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface,
+                border = BorderStroke(
+                  if (isGradeSelected) 1.5.dp else 1.dp,
+                  if (isGradeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                ),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clickable { onSelectMfcGrade(grade) }
+                  .testTag("starwood_grade_${grade.name.lowercase()}"),
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                  Column(modifier = Modifier.weight(1f)) {
+                    Text(strings.mfcGradeLabel(grade), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Text(grade.specNote, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                  }
+                  if (isGradeSelected) {
+                    Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                  }
+                }
+              }
+            }
+          }
+          FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            listOf(
+              "All" to strings.starwoodAllFilter,
+              "Uni" to strings.starwoodUniFilter,
+              "Wood" to strings.starwoodWoodFilter,
+              "Fantasy" to strings.starwoodFantasyFilter,
+            ).forEach { (key, label) ->
+              FilterChip(
+                selected = starwoodDecorFilter == key,
+                onClick = { starwoodDecorFilter = key },
+                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                modifier = Modifier.testTag("starwood_filter_${key.lowercase()}"),
+              )
+            }
+          }
+        }
+      }
+    }
+
     // Curated Swatch Grid
-    val swatches = DesignTemplates.swatchesByCategory[activeCategory].orEmpty()
+    val rawSwatches = DesignTemplates.swatchesByCategory[activeCategory].orEmpty()
+    val swatches = if (activeCategory == MaterialCategory.STARWOOD_MFC && starwoodDecorFilter != "All") {
+      rawSwatches.filter { it.decorTag == starwoodDecorFilter }
+    } else rawSwatches
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
       swatches.chunked(2).forEach { row ->
         Row(
@@ -254,7 +348,7 @@ fun MaterialsPanel(
                     maxLines = 1,
                   )
                   Text(
-                    text = sw.hexColor,
+                    text = if (sw.decorTag.isNotEmpty()) "${sw.decorTag} • ${sw.hexColor}" else sw.hexColor,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                   )
@@ -269,12 +363,14 @@ fun MaterialsPanel(
 
     // Custom Hex Code & Interactive HSV Picker
     SectionTitle(
-      title = "Exact Hex Color Matcher",
-      subtitle = "Enter any paint brand hex code or pick visually",
+      title = strings.exactHexTitle,
+      subtitle = strings.exactHexSub,
     )
 
     HexColorPickerBox(
       currentHex = currentMaterial.hexColor,
+      hueLabel = strings.hueLabel,
+      hexCodeInputLabel = strings.hexCodeInputLabel,
       onHexSelected = { hex ->
         if (applyToSecondaryPart && selectedFurniture != null) {
           onApplyMaterial(currentMaterial.copy(hexColor = hex), true)
@@ -291,6 +387,8 @@ fun MaterialsPanel(
 @Composable
 private fun HexColorPickerBox(
   currentHex: String,
+  hueLabel: String,
+  hexCodeInputLabel: String,
   onHexSelected: (String) -> Unit,
 ) {
   val focusManager = LocalFocusManager.current
@@ -371,7 +469,7 @@ private fun HexColorPickerBox(
     }
 
     // Hue Slider
-    Text("Hue", style = MaterialTheme.typography.bodySmall)
+    Text(hueLabel, style = MaterialTheme.typography.bodySmall)
     Slider(
       value = hue,
       onValueChange = { h ->
@@ -404,7 +502,7 @@ private fun HexColorPickerBox(
             onHexSelected("#$clean")
           }
         },
-        label = { Text("Hex Color Code") },
+        label = { Text(hexCodeInputLabel) },
         leadingIcon = { Icon(Icons.Outlined.Colorize, contentDescription = null) },
         singleLine = true,
         textStyle = MaterialTheme.typography.labelSmall,

@@ -42,6 +42,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,10 +67,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.model.SavedDesignSummary
+import com.example.ui.i18n.LocalAppStrings
 import com.example.viewmodel.AiRenderState
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -84,7 +87,7 @@ fun AiRenderResultDialog(
   onShare: () -> Unit,
 ) {
   if (state is AiRenderState.Idle) return
-
+  val strings = LocalAppStrings.current
   var showOriginal3D by remember(state) { mutableStateOf(false) }
 
   Dialog(
@@ -92,12 +95,12 @@ fun AiRenderResultDialog(
     properties = DialogProperties(usePlatformDefaultWidth = false),
   ) {
     Surface(
-      shape = RoundedCornerShape(22.dp),
+      shape = RoundedCornerShape(24.dp),
       color = MaterialTheme.colorScheme.surface,
       tonalElevation = 6.dp,
       modifier = Modifier
         .fillMaxWidth(0.94f)
-        .padding(12.dp),
+        .padding(10.dp),
     ) {
       Column(
         modifier = Modifier.padding(16.dp),
@@ -110,25 +113,41 @@ fun AiRenderResultDialog(
         ) {
           Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.weight(1f),
           ) {
-            Icon(
-              Icons.Outlined.AutoAwesome,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary,
-            )
+            Box(
+              modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                  Brush.linearGradient(
+                    listOf(
+                      MaterialTheme.colorScheme.primary,
+                      MaterialTheme.colorScheme.tertiary,
+                    ),
+                  ),
+                ),
+              contentAlignment = Alignment.Center,
+            ) {
+              Icon(
+                Icons.Outlined.AutoAwesome,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(19.dp),
+              )
+            }
             Column {
               Text(
-                text = "Photorealistic AI Interior",
+                text = strings.aiDialogTitle,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
               )
               Text(
                 text = when (state) {
-                  is AiRenderState.Loading -> "Rendering realistic materials & lighting (30–60s)..."
-                  is AiRenderState.Success -> "Generated directly from your 3D room layout"
-                  is AiRenderState.Error -> "Could not complete AI render"
+                  is AiRenderState.Loading -> strings.aiDialogSubLoading
+                  is AiRenderState.Success -> strings.aiDialogSubSuccess
+                  is AiRenderState.Error -> strings.aiDialogSubError
                   AiRenderState.Idle -> ""
                 },
                 style = MaterialTheme.typography.bodySmall,
@@ -137,7 +156,7 @@ fun AiRenderResultDialog(
             }
           }
           IconButton(onClick = onCancelOrDismiss, modifier = Modifier.testTag("ai_dialog_close")) {
-            Icon(Icons.Outlined.Close, contentDescription = "Close AI render dialog")
+            Icon(Icons.Outlined.Close, contentDescription = strings.closeBtn)
           }
         }
 
@@ -157,7 +176,7 @@ fun AiRenderResultDialog(
             Box(
               modifier = Modifier
                 .fillMaxWidth()
-                .height(260.dp)
+                .height(250.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
               contentAlignment = Alignment.Center,
@@ -165,7 +184,7 @@ fun AiRenderResultDialog(
               if (state.sourceBitmap != null) {
                 Image(
                   bitmap = state.sourceBitmap.asImageBitmap(),
-                  contentDescription = "Captured 3D room layout",
+                  contentDescription = strings.aiTab3d,
                   contentScale = ContentScale.Crop,
                   modifier = Modifier.fillMaxSize(),
                 )
@@ -187,8 +206,9 @@ fun AiRenderResultDialog(
               }
               Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
                 tonalElevation = 4.dp,
+                modifier = Modifier.padding(horizontal = 16.dp),
               ) {
                 Column(
                   modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -197,9 +217,10 @@ fun AiRenderResultDialog(
                 ) {
                   CircularProgressIndicator(modifier = Modifier.size(34.dp))
                   Text(
-                    text = "Transforming 3D layout to real photo...",
+                    text = strings.aiTransformingMsg,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
                   )
                 }
               }
@@ -215,7 +236,7 @@ fun AiRenderResultDialog(
                 .height(48.dp)
                 .testTag("ai_cancel_button"),
             ) {
-              Text("Cancel Render")
+              Text(strings.aiCancelBtn)
             }
           }
 
@@ -228,35 +249,50 @@ fun AiRenderResultDialog(
               FilterChip(
                 selected = !showOriginal3D,
                 onClick = { showOriginal3D = false },
-                label = { Text("AI Real Photo") },
+                label = { Text(strings.aiTabPhoto) },
                 leadingIcon = {
                   Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
                 },
+                colors = FilterChipDefaults.filterChipColors(
+                  selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                  selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
                 modifier = Modifier.testTag("ai_tab_photo"),
               )
               FilterChip(
                 selected = showOriginal3D,
                 onClick = { showOriginal3D = true },
-                label = { Text("3D Plan") },
+                label = { Text(strings.aiTab3d) },
                 leadingIcon = {
                   Icon(Icons.Outlined.Compare, contentDescription = null, modifier = Modifier.size(16.dp))
                 },
+                colors = FilterChipDefaults.filterChipColors(
+                  selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                  selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
                 modifier = Modifier.testTag("ai_tab_3d"),
               )
             }
 
             val displayBitmap = if (showOriginal3D) state.sourceBitmap else state.renderedBitmap
             val ratio = (displayBitmap.width.toFloat() / displayBitmap.height.coerceAtLeast(1)).coerceIn(0.65f, 2.0f)
-            Image(
-              bitmap = displayBitmap.asImageBitmap(),
-              contentDescription = if (showOriginal3D) "Original 3D viewport layout" else "AI photorealistic room photograph",
-              contentScale = ContentScale.Fit,
+            Box(
               modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 360.dp)
-                .aspectRatio(ratio)
-                .clip(RoundedCornerShape(16.dp)),
-            )
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+              contentAlignment = Alignment.Center,
+            ) {
+              Image(
+                bitmap = displayBitmap.asImageBitmap(),
+                contentDescription = if (showOriginal3D) strings.aiTab3d else strings.aiTabPhoto,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .heightIn(max = 360.dp)
+                  .aspectRatio(ratio),
+              )
+            }
 
             Row(
               modifier = Modifier.fillMaxWidth(),
@@ -272,7 +308,7 @@ fun AiRenderResultDialog(
               ) {
                 Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Save")
+                Text(strings.saveBtn)
               }
               OutlinedButton(
                 onClick = onShare,
@@ -284,7 +320,7 @@ fun AiRenderResultDialog(
               ) {
                 Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Share")
+                Text(strings.shareBtn)
               }
               OutlinedButton(
                 onClick = onRetry,
@@ -293,7 +329,7 @@ fun AiRenderResultDialog(
                   .height(48.dp)
                   .testTag("ai_rerender_button"),
               ) {
-                Icon(Icons.Outlined.Refresh, contentDescription = "Regenerate AI render", modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.Refresh, contentDescription = strings.aiRetryBtn, modifier = Modifier.size(18.dp))
               }
             }
           }
@@ -340,7 +376,7 @@ fun AiRenderResultDialog(
               ) {
                 Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Try Again")
+                Text(strings.aiRetryBtn)
               }
               OutlinedButton(
                 onClick = onCancelOrDismiss,
@@ -349,7 +385,7 @@ fun AiRenderResultDialog(
                   .weight(1f)
                   .height(48.dp),
               ) {
-                Text("Close")
+                Text(strings.closeBtn)
               }
             }
           }
@@ -366,6 +402,7 @@ fun SnapshotPreviewDialog(
   onShare: () -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val strings = LocalAppStrings.current
   val bitmap = remember(pngBytes) {
     BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size)?.asImageBitmap()
   }
@@ -375,12 +412,12 @@ fun SnapshotPreviewDialog(
     properties = DialogProperties(usePlatformDefaultWidth = false),
   ) {
     Surface(
-      shape = RoundedCornerShape(20.dp),
+      shape = RoundedCornerShape(22.dp),
       color = MaterialTheme.colorScheme.surface,
       tonalElevation = 6.dp,
       modifier = Modifier
         .fillMaxWidth(0.92f)
-        .padding(16.dp),
+        .padding(14.dp),
     ) {
       Column(
         modifier = Modifier.padding(16.dp),
@@ -391,16 +428,16 @@ fun SnapshotPreviewDialog(
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          Column {
-            Text("High-Resolution Snapshot", style = MaterialTheme.typography.titleMedium)
+          Column(modifier = Modifier.weight(1f)) {
+            Text(strings.snapDialogTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
-              "1920px wide PNG render",
+              strings.snapDialogSub,
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
           IconButton(onClick = onDismiss) {
-            Icon(Icons.Outlined.Close, contentDescription = "Close preview")
+            Icon(Icons.Outlined.Close, contentDescription = strings.closeBtn)
           }
         }
 
@@ -408,10 +445,11 @@ fun SnapshotPreviewDialog(
           val ratio = (bitmap.width.toFloat() / bitmap.height.coerceAtLeast(1)).coerceIn(0.6f, 2.2f)
           Image(
             bitmap = bitmap,
-            contentDescription = "Rendered 3D room snapshot",
+            contentDescription = strings.snapDialogTitle,
             contentScale = ContentScale.Fit,
             modifier = Modifier
               .fillMaxWidth()
+              .heightIn(max = 360.dp)
               .aspectRatio(ratio)
               .clip(RoundedCornerShape(14.dp)),
           )
@@ -431,7 +469,7 @@ fun SnapshotPreviewDialog(
           ) {
             Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Save PNG")
+            Text(strings.savePngBtn)
           }
           OutlinedButton(
             onClick = onShare,
@@ -443,7 +481,7 @@ fun SnapshotPreviewDialog(
           ) {
             Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Share")
+            Text(strings.shareBtn)
           }
         }
       }
@@ -463,6 +501,7 @@ fun ProjectsDialog(
   onImportJson: () -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val strings = LocalAppStrings.current
   var nameInput by remember(currentName) { mutableStateOf(currentName) }
   val dateFmt = remember { SimpleDateFormat("MMM d, HH:mm", Locale.US) }
 
@@ -471,12 +510,12 @@ fun ProjectsDialog(
     properties = DialogProperties(usePlatformDefaultWidth = false),
   ) {
     Surface(
-      shape = RoundedCornerShape(20.dp),
+      shape = RoundedCornerShape(22.dp),
       color = MaterialTheme.colorScheme.surface,
       tonalElevation = 6.dp,
       modifier = Modifier
         .fillMaxWidth(0.92f)
-        .padding(16.dp),
+        .padding(14.dp),
     ) {
       Column(
         modifier = Modifier.padding(18.dp),
@@ -487,16 +526,21 @@ fun ProjectsDialog(
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          Text("Saved Designs & Backup", style = MaterialTheme.typography.titleMedium)
+          Text(
+            text = strings.projectsDialogTitle,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+          )
           IconButton(onClick = onDismiss) {
-            Icon(Icons.Outlined.Close, contentDescription = "Close projects dialog")
+            Icon(Icons.Outlined.Close, contentDescription = strings.closeBtn)
           }
         }
 
         OutlinedTextField(
           value = nameInput,
           onValueChange = { nameInput = it.take(40) },
-          label = { Text("Design Name") },
+          label = { Text(strings.designNameLabel) },
           singleLine = true,
           shape = RoundedCornerShape(12.dp),
           modifier = Modifier
@@ -517,7 +561,7 @@ fun ProjectsDialog(
           ) {
             Icon(Icons.Outlined.Save, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Save")
+            Text(strings.saveBtn)
           }
           OutlinedButton(
             onClick = { onSaveAsNew(nameInput) },
@@ -526,7 +570,7 @@ fun ProjectsDialog(
               .weight(1f)
               .testTag("save_as_new_project_button"),
           ) {
-            Text("Save As Copy")
+            Text(strings.saveAsCopyBtn)
           }
         }
 
@@ -543,7 +587,7 @@ fun ProjectsDialog(
           ) {
             Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Export JSON")
+            Text(strings.exportJsonBtn)
           }
           OutlinedButton(
             onClick = onImportJson,
@@ -554,20 +598,20 @@ fun ProjectsDialog(
           ) {
             Icon(Icons.Outlined.FileOpen, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Import JSON")
+            Text(strings.importJsonBtn)
           }
         }
 
         HorizontalDivider()
 
         Text(
-          text = "Local Projects (${savedDesigns.size})",
+          text = "${strings.localProjectsTitle} (${savedDesigns.size})",
           style = MaterialTheme.typography.titleSmall,
         )
 
         if (savedDesigns.isEmpty()) {
           Text(
-            text = "No saved projects yet. Tap Save above to store your current design.",
+            text = strings.noProjectsEmptyMsg,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 8.dp),
@@ -602,7 +646,7 @@ fun ProjectsDialog(
                       fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                      text = "${item.roomType.displayName} • ${item.dimensionsSummary} • ${dateFmt.format(Date(item.updatedAtMillis))}",
+                      text = "${strings.roomTypeLabel(item.roomType)} • ${item.dimensionsSummary} • ${dateFmt.format(Date(item.updatedAtMillis))}",
                       style = MaterialTheme.typography.bodySmall,
                       color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

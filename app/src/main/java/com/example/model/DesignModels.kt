@@ -11,8 +11,15 @@ enum class LengthUnit(val suffix: String) {
   CENTIMETERS("cm"),
 }
 
+enum class AppLanguage(val shortCode: String, val nativeName: String, val isRtl: Boolean) {
+  ARABIC("AR", "العربية", true),
+  ENGLISH("EN", "English", false),
+  FRENCH("FR", "Français", false),
+}
+
 enum class MaterialCategory(val label: String) {
   PAINT("Paint"),
+  STARWOOD_MFC("Starwood MFC"),
   WOOD("Wood"),
   STONE("Stone"),
   TILE("Tile"),
@@ -28,12 +35,15 @@ enum class MaterialFinish(
   MATTE_PAINT("Matte Paint", MaterialCategory.PAINT, "#F4F1EA"),
   SATIN_PAINT("Satin Paint", MaterialCategory.PAINT, "#E6E0D4"),
   GLOSSY_PAINT("Glossy Lacquer", MaterialCategory.PAINT, "#FAF8F5"),
+  MFC_MELAMINE("Starwood Uni MFC", MaterialCategory.STARWOOD_MFC, "#EAE6DF"),
+  MFC_WOOD("Starwood Wood MFC", MaterialCategory.STARWOOD_MFC, "#C5A379"),
   WOOD_OAK("White Oak", MaterialCategory.WOOD, "#C8A57B"),
   WOOD_WALNUT("American Walnut", MaterialCategory.WOOD, "#5C3D28"),
   WOOD_BEECH("Scandi Beech", MaterialCategory.WOOD, "#DFC29B"),
   MARBLE_WHITE("Carrara Marble", MaterialCategory.STONE, "#F2EFE9"),
   QUARTZ_CREAM("Calacatta Quartz", MaterialCategory.STONE, "#EBE4D6"),
   DARK_STONE("Nero Slate", MaterialCategory.STONE, "#323539"),
+  GRANITE_SPECKLED("Natural Granite", MaterialCategory.STONE, "#1E2024"),
   CERAMIC_TILE("Ceramic Tile", MaterialCategory.TILE, "#E9E5DC"),
   FABRIC_WOVEN("Woven Fabric", MaterialCategory.FABRIC, "#D5CFC4"),
   BRUSHED_METAL("Brushed Metal", MaterialCategory.METAL, "#C3C8CE"),
@@ -66,6 +76,13 @@ data class WallOpening(
   val sillHeightMeters: Float,
 )
 
+enum class CabinetStyle(val label: String) {
+  HANDLELESS_GOLA("Handleless"),
+  SHAKER_FRAME("Shaker Frame"),
+  GLASS_DISPLAY("Glass Display"),
+  OPEN_SHELVING("Open Shelf"),
+}
+
 enum class FurnitureCategory(val label: String) {
   KITCHEN("Kitchen"),
   BEDROOM("Bedroom"),
@@ -81,6 +98,7 @@ enum class FurnitureKind(
   val defaultY: Float = 0f,
   val defaultMaterial: SurfaceMaterial,
   val defaultSecondaryMaterial: SurfaceMaterial? = null,
+  val defaultStyle: CabinetStyle = CabinetStyle.HANDLELESS_GOLA,
 ) {
   STRAIGHT_COUNTER(
     displayName = "Straight Counter",
@@ -117,6 +135,7 @@ enum class FurnitureKind(
     defaultH = 0.78f,
     defaultY = 1.45f,
     defaultMaterial = SurfaceMaterial(MaterialFinish.SATIN_PAINT, "#F2EFE9"),
+    defaultStyle = CabinetStyle.GLASS_DISPLAY,
   ),
   TALL_PANTRY(
     displayName = "Tall Pantry / Fridge",
@@ -222,6 +241,10 @@ data class FurnitureItem(
   val rotationDeg: Float = 0f,
   val material: SurfaceMaterial,
   val secondaryMaterial: SurfaceMaterial? = null,
+  val style: CabinetStyle = kind.defaultStyle,
+  val showDoors: Boolean = true,
+  val showDrawers: Boolean = true,
+  val showHandles: Boolean = false,
 )
 
 enum class LightingPreset(val displayName: String, val subtitle: String) {
@@ -244,6 +267,79 @@ sealed interface SelectionTarget {
   data class Furniture(val id: String) : SelectionTarget
 }
 
+enum class ProfileHandleType(val label: String, val subtitle: String) {
+  GOLA_CHANNEL("Gola C/J Aluminum Channel", "Recessed hidden aluminum finger channel"),
+  PROFILE_EDGE("Top-Lip Profile Handle", "Aluminum profile bar on door/drawer edge"),
+  SLIM_BAR("Slim Aluminum Bar Pull", "Surface-mounted brushed metal bar"),
+  PUSH_OPEN("Push-to-Open Latch", "Handleless clean front with touch latch"),
+}
+
+enum class AluminumFinish(val label: String, val hexColor: String) {
+  MATTE_BLACK("Matte Black Anodized", "#22252A"),
+  ANODIZED_SILVER("Anodized Natural Silver", "#C8CDD4"),
+  CHAMPAGNE_GOLD("Champagne Gold", "#C9A86A"),
+  DARK_BRONZE("Dark Smoked Bronze", "#5C4A3D"),
+  BRUSHED_INOX("Brushed Inox Steel", "#D6DBE0"),
+}
+
+enum class SinkType(
+  val label: String,
+  val subtitle: String,
+  val widthMeters: Float,
+  val doubleBowl: Boolean,
+  val isBlackGranite: Boolean,
+) {
+  SINGLE_STEEL_60("Single Bowl Inox 304 (60cm)", "Undermount / Topmount deep stainless", 0.58f, false, false),
+  DOUBLE_STEEL_116("Double Bowl + Drainer (116cm)", "Twin stainless basins with side drainer", 0.96f, true, false),
+  GRANITE_BLACK_80("Black Granite Composite (80cm)", "Scratch-resistant quartz-granite sink", 0.74f, false, true),
+  GRANITE_DOUBLE_100("Black Granite Double (100cm)", "Twin matte granite bowls — Lebanon popular", 0.92f, true, true),
+  COMPACT_45("Compact Single Bowl (45cm)", "Space-saving utility / small kitchen sink", 0.44f, false, false),
+}
+
+enum class FaucetStyle(
+  val label: String,
+  val isBlack: Boolean,
+  val isSpringChef: Boolean,
+) {
+  SPRING_CHEF_STEEL("Pull-Down Spring Chef Mixer", false, true),
+  L_SPOUT_CHROME("Modern L-Spout Chrome Mixer", false, false),
+  MATTE_BLACK_ARC("Matte Black High-Arc Gooseneck", true, false),
+}
+
+enum class LebaneseOrganizer(val label: String, val sizeSpec: String, val category: String) {
+  PULLOUT_SPICE_20("Pull-Out Spice & Oil Basket", "15–20 cm", "Pull-Out"),
+  PULLOUT_PANTRY_40("Tall Pantry Pull-Out Column", "30–40 cm", "Pull-Out"),
+  MAGIC_CORNER("Magic Corner Pull-Out System", "90–100 cm Corner", "Corner"),
+  PULLOUT_BIN("Built-In Dual Trash Pull-Out", "30–45 cm", "Pull-Out"),
+  DISH_RACK_80("Upper Stainless Dish Rack", "60–90 cm", "Sink Zone"),
+  CUTLERY_TRAY("Soft-Close Cutlery Organizer", "60–90 cm Drawer", "Drawer"),
+  BUILT_IN_HOB_HOOD("Built-in Gas Hob + Chimney Hood", "60–90 cm", "Appliances"),
+  WATER_FILTER_TAP("Under-Sink RO Water Filter", "3-Stage Compact", "Sink Zone"),
+}
+
+enum class MfcBoardGrade(val code: String, val title: String, val specNote: String) {
+  P2_REGULAR("MFC / P2", "Regular Chipboard (P2)", "620–700 kg/m³ • Bedrooms, wardrobes & dry cabinets"),
+  P7_MOISTURE_RESISTANT("MFC / P7", "Moisture Resistant (P7)", "670–810 kg/m³ • 9% 24h swelling — Sink & kitchen boxes"),
+}
+
+data class KitchenSpecs(
+  val handleType: ProfileHandleType = ProfileHandleType.PROFILE_EDGE,
+  val aluminumFinish: AluminumFinish = AluminumFinish.MATTE_BLACK,
+  val aluminumPlinth: Boolean = true,
+  val underCabinetLed: Boolean = true,
+  val softCloseHardware: Boolean = true,
+  val countertopThicknessCm: Int = 3,
+  val countertopPolished: Boolean = true,
+  val sinkType: SinkType = SinkType.SINGLE_STEEL_60,
+  val faucetStyle: FaucetStyle = FaucetStyle.SPRING_CHEF_STEEL,
+  val mfcBoardGrade: MfcBoardGrade = MfcBoardGrade.P7_MOISTURE_RESISTANT,
+  val organizers: Set<LebaneseOrganizer> = setOf(
+    LebaneseOrganizer.PULLOUT_SPICE_20,
+    LebaneseOrganizer.DISH_RACK_80,
+    LebaneseOrganizer.BUILT_IN_HOB_HOOD,
+  ),
+)
+
 data class RoomDesign(
   val id: String,
   val name: String,
@@ -262,6 +358,7 @@ data class RoomDesign(
   val lightingPreset: LightingPreset = LightingPreset.DAYLIGHT,
   val sunAzimuthDeg: Float = 42f,
   val exposure: Float = 1.08f,
+  val kitchenSpecs: KitchenSpecs = KitchenSpecs(),
 )
 
 data class SavedDesignSummary(

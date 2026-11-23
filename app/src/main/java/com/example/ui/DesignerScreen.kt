@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,7 +26,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Redo
@@ -35,12 +40,18 @@ import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Chair
 import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Hardware
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.SquareFoot
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.outlined.ViewInAr
+import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -51,10 +62,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,17 +87,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.model.AppLanguage
 import com.example.model.CameraPreset
 import com.example.model.SelectionTarget
 import com.example.ui.components.AiRenderResultDialog
+import com.example.ui.components.AluminumHardwarePanel
+import com.example.ui.components.CabinetBoxesPanel
 import com.example.ui.components.FurniturePanel
+import com.example.ui.components.GraniteStonePanel
 import com.example.ui.components.MaterialsPanel
 import com.example.ui.components.ProjectsDialog
 import com.example.ui.components.RoomPanel
+import com.example.ui.components.SinkPulloutPanel
 import com.example.ui.components.SnapshotPreviewDialog
 import com.example.ui.components.StudioExportPanel
 import com.example.ui.components.Viewport3D
 import com.example.ui.components.formatDimension
+import com.example.ui.i18n.LocalAppStrings
+import com.example.ui.i18n.stringsFor
 import com.example.viewmodel.AiRenderState
 import com.example.viewmodel.DesignerUiState
 import com.example.viewmodel.DesignerViewModel
@@ -132,6 +154,13 @@ fun DesignerScreen(viewModel: DesignerViewModel) {
     BackHandler { viewModel.toggleFullscreenViewport() }
   }
 
+  val appStrings = remember(state.appLanguage) { stringsFor(state.appLanguage) }
+  val layoutDir = if (state.appLanguage.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+
+  CompositionLocalProvider(
+    LocalAppStrings provides appStrings,
+    LocalLayoutDirection provides layoutDir,
+  ) {
   Scaffold(
     snackbarHost = { SnackbarHost(snackbarHostState) },
     contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -140,8 +169,10 @@ fun DesignerScreen(viewModel: DesignerViewModel) {
         state = state,
         onUndo = viewModel::undo,
         onRedo = viewModel::redo,
-        onToggleRealistic = viewModel::toggleRealisticView,
-        onCaptureSnapshot = viewModel::requestSnapshot,
+        onSelectLanguage = { lang ->
+          viewModel.setAppLanguage(lang)
+          scope.launch { snackbarHostState.showSnackbar(stringsFor(lang).languageChangedMsg) }
+        },
         onOpenProjects = { viewModel.setShowProjectsDialog(true) },
       )
     },
@@ -185,7 +216,7 @@ fun DesignerScreen(viewModel: DesignerViewModel) {
             viewModel = viewModel,
             modifier = Modifier
               .fillMaxWidth()
-              .weight(if (state.isFullscreenViewport) 1f else 0.48f),
+              .weight(if (state.isFullscreenViewport) 1f else 0.45f),
           )
 
           if (!state.isFullscreenViewport) {
@@ -195,7 +226,7 @@ fun DesignerScreen(viewModel: DesignerViewModel) {
               viewModel = viewModel,
               modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.52f)
+                .weight(0.55f)
                 .navigationBarsPadding(),
             )
           }
@@ -271,6 +302,7 @@ fun DesignerScreen(viewModel: DesignerViewModel) {
       onDismiss = { viewModel.setShowProjectsDialog(false) },
     )
   }
+  }
 }
 
 @Composable
@@ -278,19 +310,32 @@ private fun StudioTopBar(
   state: DesignerUiState,
   onUndo: () -> Unit,
   onRedo: () -> Unit,
-  onToggleRealistic: () -> Unit,
-  onCaptureSnapshot: () -> Unit,
+  onSelectLanguage: (AppLanguage) -> Unit,
   onOpenProjects: () -> Unit,
 ) {
   val d = state.design
+  val strings = LocalAppStrings.current
+  var showLangMenu by remember { mutableStateOf(false) }
   val dimLabel = "${formatDimension(d.widthMeters, d.unit)}×${formatDimension(d.lengthMeters, d.unit)}${d.unit.suffix}"
 
   Surface(
     color = MaterialTheme.colorScheme.surface,
     tonalElevation = 2.dp,
-    shadowElevation = 2.dp,
+    shadowElevation = 3.dp,
   ) {
-    Column(modifier = Modifier.statusBarsPadding()) {
+    Column(
+      modifier = Modifier
+        .background(
+          Brush.horizontalGradient(
+            listOf(
+              MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f),
+              MaterialTheme.colorScheme.surface,
+              MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.22f),
+            ),
+          ),
+        )
+        .statusBarsPadding(),
+    ) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
@@ -299,18 +344,49 @@ private fun StudioTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = d.name,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-          )
-          Text(
-            text = "${d.roomType.displayName} • $dimLabel",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
+        Row(
+          modifier = Modifier.weight(1f),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+          Box(
+            modifier = Modifier
+              .size(34.dp)
+              .clip(RoundedCornerShape(10.dp))
+              .background(
+                Brush.linearGradient(
+                  listOf(
+                    MaterialTheme.colorScheme.primary,
+                    MaterialTheme.colorScheme.tertiary,
+                  ),
+                ),
+              ),
+            contentAlignment = Alignment.Center,
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.ViewInAr,
+              contentDescription = null,
+              tint = Color.White,
+              modifier = Modifier.size(19.dp),
+            )
+          }
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+              text = d.name,
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.SemiBold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+              text = "${strings.roomTypeLabel(d.roomType)} • $dimLabel",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.primary,
+              fontWeight = FontWeight.Medium,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+          }
         }
 
         Row(
@@ -338,41 +414,54 @@ private fun StudioTopBar(
             )
           }
 
-          FilterChip(
-            selected = d.realisticView,
-            onClick = onToggleRealistic,
-            label = {
-              Text(
-                text = if (d.realisticView) "Realistic" else "Studio",
-                style = MaterialTheme.typography.labelMedium,
-              )
-            },
-            leadingIcon = {
-              Icon(
-                Icons.Outlined.AutoAwesome,
-                contentDescription = stringResource(R.string.cd_realistic_view),
-                modifier = Modifier.size(16.dp),
-              )
-            },
-            colors = FilterChipDefaults.filterChipColors(
-              selectedContainerColor = MaterialTheme.colorScheme.primary,
-              selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-              selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
-            ),
-            modifier = Modifier
-              .padding(horizontal = 4.dp)
-              .testTag("realistic_top_toggle"),
-          )
-
-          IconButton(
-            onClick = onCaptureSnapshot,
-            enabled = !state.isCapturingSnapshot,
-            modifier = Modifier.testTag("snapshot_top_button"),
-          ) {
-            Icon(
-              Icons.Outlined.CameraAlt,
-              contentDescription = stringResource(R.string.cd_snapshot),
-            )
+          Box {
+            Surface(
+              shape = RoundedCornerShape(12.dp),
+              color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+              modifier = Modifier
+                .clickable { showLangMenu = true }
+                .testTag("language_button"),
+            ) {
+              Row(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+              ) {
+                Icon(
+                  Icons.Outlined.Language,
+                  contentDescription = "Language",
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(16.dp),
+                )
+                Text(
+                  text = state.appLanguage.shortCode,
+                  style = MaterialTheme.typography.labelMedium,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.primary,
+                )
+              }
+            }
+            DropdownMenu(
+              expanded = showLangMenu,
+              onDismissRequest = { showLangMenu = false },
+            ) {
+              AppLanguage.entries.forEach { lang ->
+                DropdownMenuItem(
+                  text = {
+                    Text(
+                      text = "${lang.nativeName} (${lang.shortCode})",
+                      fontWeight = if (lang == state.appLanguage) FontWeight.Bold else FontWeight.Normal,
+                    )
+                  },
+                  onClick = {
+                    showLangMenu = false
+                    onSelectLanguage(lang)
+                  },
+                  modifier = Modifier.testTag("lang_option_${lang.name.lowercase()}"),
+                )
+              }
+            }
           }
 
           IconButton(
@@ -382,6 +471,7 @@ private fun StudioTopBar(
             Icon(
               Icons.Outlined.FolderOpen,
               contentDescription = stringResource(R.string.cd_projects),
+              tint = MaterialTheme.colorScheme.primary,
             )
           }
         }
@@ -397,13 +487,14 @@ private fun ViewportContainer(
   viewModel: DesignerViewModel,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalAppStrings.current
   val selectedLabel = when (val t = state.selectedTarget) {
-    SelectionTarget.Walls -> "Walls"
-    SelectionTarget.Floor -> "Floor"
-    SelectionTarget.Ceiling -> "Ceiling"
-    SelectionTarget.AllCountertops -> "Countertops"
+    SelectionTarget.Walls -> strings.wallsLabel
+    SelectionTarget.Floor -> strings.floorLabel
+    SelectionTarget.Ceiling -> strings.ceilingLabel
+    SelectionTarget.AllCountertops -> strings.countertopsLabel
     is SelectionTarget.Furniture ->
-      state.design.furniture.firstOrNull { it.id == t.id }?.label ?: "Furniture"
+      state.design.furniture.firstOrNull { it.id == t.id }?.label ?: strings.furnitureFallbackLabel
   }
 
   Box(modifier = modifier) {
@@ -417,20 +508,28 @@ private fun ViewportContainer(
       modifier = Modifier.fillMaxSize(),
     )
 
-    // Selected element badge (top-left)
+    // Selected element badge (top-start, 1-tap to customize material)
     Surface(
       shape = RoundedCornerShape(20.dp),
-      color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
-      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+      color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+      shadowElevation = 3.dp,
       modifier = Modifier
         .align(Alignment.TopStart)
-        .padding(10.dp),
+        .padding(10.dp)
+        .clickable { viewModel.setActiveTab(StudioTab.MATERIALS) },
     ) {
       Row(
-        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
       ) {
+        Box(
+          modifier = Modifier
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.secondary),
+        )
         Icon(
           Icons.Outlined.Palette,
           contentDescription = null,
@@ -438,41 +537,99 @@ private fun ViewportContainer(
           modifier = Modifier.size(15.dp),
         )
         Text(
-          text = "Selected: $selectedLabel",
+          text = selectedLabel,
           style = MaterialTheme.typography.labelMedium,
           fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurface,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
         )
       }
     }
 
-    // Fullscreen toggle (top-right)
+    // Realistic toggle + PNG Snapshot + Fullscreen pill cluster (top-end)
     Surface(
-      shape = RoundedCornerShape(14.dp),
-      color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
+      shape = RoundedCornerShape(18.dp),
+      color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
       border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+      shadowElevation = 3.dp,
       modifier = Modifier
         .align(Alignment.TopEnd)
         .padding(10.dp),
     ) {
-      IconButton(
-        onClick = viewModel::toggleFullscreenViewport,
-        modifier = Modifier
-          .size(40.dp)
-          .testTag("fullscreen_viewport_button"),
+      Row(
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
       ) {
-        Icon(
-          imageVector = if (state.isFullscreenViewport) {
-            Icons.Outlined.CloseFullscreen
+        Surface(
+          shape = RoundedCornerShape(14.dp),
+          color = if (state.design.realisticView) {
+            MaterialTheme.colorScheme.tertiary
           } else {
-            Icons.Outlined.OpenInFull
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
           },
-          contentDescription = stringResource(R.string.cd_fullscreen_3d),
-          modifier = Modifier.size(18.dp),
-        )
+          modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = viewModel::toggleRealisticView)
+            .testTag("realistic_top_toggle"),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            Icon(
+              Icons.Outlined.AutoAwesome,
+              contentDescription = stringResource(R.string.cd_realistic_view),
+              tint = if (state.design.realisticView) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(14.dp),
+            )
+            Text(
+              text = if (state.design.realisticView) strings.realisticChip else strings.studioChip,
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.SemiBold,
+              color = if (state.design.realisticView) Color.White else MaterialTheme.colorScheme.onSurface,
+            )
+          }
+        }
+
+        IconButton(
+          onClick = viewModel::requestSnapshot,
+          enabled = !state.isCapturingSnapshot,
+          modifier = Modifier
+            .size(36.dp)
+            .testTag("snapshot_top_button"),
+        ) {
+          Icon(
+            Icons.Outlined.CameraAlt,
+            contentDescription = stringResource(R.string.cd_snapshot),
+            tint = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.size(18.dp),
+          )
+        }
+
+        IconButton(
+          onClick = viewModel::toggleFullscreenViewport,
+          modifier = Modifier
+            .size(36.dp)
+            .testTag("fullscreen_viewport_button"),
+        ) {
+          Icon(
+            imageVector = if (state.isFullscreenViewport) {
+              Icons.Outlined.CloseFullscreen
+            } else {
+              Icons.Outlined.OpenInFull
+            },
+            contentDescription = stringResource(R.string.cd_fullscreen_3d),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+          )
+        }
       }
     }
 
-    // Floating Camera Presets + Convert to Realistic bar (bottom-center)
+    // Floating Camera Presets + AI Photo CTA bar (bottom-center)
     Surface(
       shape = RoundedCornerShape(24.dp),
       color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
@@ -487,7 +644,7 @@ private fun ViewportContainer(
         modifier = Modifier
           .horizontalScroll(rememberScrollState())
           .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         CameraPreset.entries.forEach { preset ->
@@ -495,7 +652,7 @@ private fun ViewportContainer(
           FilterChip(
             selected = active,
             onClick = { viewModel.setCameraPreset(preset) },
-            label = { Text(preset.label, style = MaterialTheme.typography.labelSmall) },
+            label = { Text(strings.cameraPresetLabel(preset), style = MaterialTheme.typography.labelSmall) },
             colors = FilterChipDefaults.filterChipColors(
               selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
               selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -503,26 +660,44 @@ private fun ViewportContainer(
             modifier = Modifier.testTag("viewport_cam_${preset.name.lowercase()}"),
           )
         }
-        Button(
-          onClick = viewModel::requestAiPhotorealisticRender,
-          enabled = state.aiRenderState !is AiRenderState.Loading,
+        val aiLoading = state.aiRenderState is AiRenderState.Loading
+        Surface(
           shape = RoundedCornerShape(18.dp),
-          contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-          colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-          ),
+          color = Color.Transparent,
+          shadowElevation = 2.dp,
           modifier = Modifier
             .height(34.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+              Brush.horizontalGradient(
+                listOf(
+                  MaterialTheme.colorScheme.primary,
+                  MaterialTheme.colorScheme.tertiary,
+                ),
+              ),
+              alpha = if (aiLoading) 0.55f else 1f,
+            )
+            .clickable(enabled = !aiLoading, onClick = viewModel::requestAiPhotorealisticRender)
             .testTag("ai_render_cta"),
         ) {
-          Icon(
-            Icons.Outlined.AutoAwesome,
-            contentDescription = null,
-            modifier = Modifier.size(15.dp),
-          )
-          Spacer(Modifier.width(5.dp))
-          Text("Real Photo", style = MaterialTheme.typography.labelSmall)
+          Row(
+            modifier = Modifier.padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+          ) {
+            Icon(
+              Icons.Outlined.AutoAwesome,
+              contentDescription = null,
+              tint = Color.White,
+              modifier = Modifier.size(15.dp),
+            )
+            Text(
+              text = strings.realPhotoCta,
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.SemiBold,
+              color = Color.White,
+            )
+          }
         }
       }
     }
@@ -535,29 +710,92 @@ private fun StudioControlPanel(
   viewModel: DesignerViewModel,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalAppStrings.current
+  val tabListState = rememberLazyListState()
+  LaunchedEffect(state.activeTab) {
+    tabListState.animateScrollToItem(state.activeTab.ordinal)
+  }
+
   Surface(
     color = MaterialTheme.colorScheme.background,
     modifier = modifier,
   ) {
     Column(modifier = Modifier.fillMaxSize()) {
-      TabRow(
-        selectedTabIndex = state.activeTab.ordinal,
-        containerColor = MaterialTheme.colorScheme.surface,
+      Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
       ) {
-        StudioTab.entries.forEach { tab ->
-          val icon = when (tab) {
-            StudioTab.ROOM -> Icons.Outlined.SquareFoot
-            StudioTab.FURNITURE -> Icons.Outlined.Chair
-            StudioTab.MATERIALS -> Icons.Outlined.Palette
-            StudioTab.RENDER -> Icons.Outlined.Tune
+        Column {
+          LazyRow(
+            state = tabListState,
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            itemsIndexed(StudioTab.entries) { _, tab ->
+              val icon = when (tab) {
+                StudioTab.ROOM -> Icons.Outlined.SquareFoot
+                StudioTab.CABINETS -> Icons.Outlined.Inventory2
+                StudioTab.ALUMINUM -> Icons.Outlined.Hardware
+                StudioTab.GRANITE -> Icons.Outlined.Layers
+                StudioTab.SINK_PULLOUT -> Icons.Outlined.WaterDrop
+                StudioTab.FURNITURE -> Icons.Outlined.Chair
+                StudioTab.MATERIALS -> Icons.Outlined.Palette
+                StudioTab.RENDER -> Icons.Outlined.Tune
+              }
+              val tabLabel = when (tab) {
+                StudioTab.ROOM -> strings.tabRoom
+                StudioTab.CABINETS -> strings.tabCabinets
+                StudioTab.ALUMINUM -> strings.tabAluminum
+                StudioTab.GRANITE -> strings.tabGranite
+                StudioTab.SINK_PULLOUT -> strings.tabSinkPullout
+                StudioTab.FURNITURE -> strings.tabFurniture
+                StudioTab.MATERIALS -> strings.tabMaterials
+                StudioTab.RENDER -> strings.tabRender
+              }
+              val isSelected = state.activeTab == tab
+              Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = if (isSelected) {
+                  MaterialTheme.colorScheme.primary
+                } else {
+                  MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                },
+                border = if (isSelected) null else BorderStroke(
+                  1.dp,
+                  MaterialTheme.colorScheme.outlineVariant,
+                ),
+                shadowElevation = if (isSelected) 2.dp else 0.dp,
+                modifier = Modifier
+                  .height(38.dp)
+                  .clip(RoundedCornerShape(14.dp))
+                  .clickable { viewModel.setActiveTab(tab) }
+                  .testTag("tab_${tab.name.lowercase()}"),
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                  Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                  )
+                  Text(
+                    text = tabLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    softWrap = false,
+                  )
+                }
+              }
+            }
           }
-          Tab(
-            selected = state.activeTab == tab,
-            onClick = { viewModel.setActiveTab(tab) },
-            text = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
-            icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            modifier = Modifier.testTag("tab_${tab.name.lowercase()}"),
-          )
+          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
       }
 
@@ -571,6 +809,35 @@ private fun StudioControlPanel(
           onUpdateOpening = viewModel::updateOpening,
           onRemoveOpening = viewModel::removeOpening,
           onApplyTemplate = viewModel::applyTemplate,
+          modifier = Modifier.weight(1f),
+        )
+        StudioTab.CABINETS -> CabinetBoxesPanel(
+          design = state.design,
+          selectedTarget = state.selectedTarget,
+          onSelectCabinet = { id -> viewModel.selectTarget(SelectionTarget.Furniture(id)) },
+          onAddBoxPreset = viewModel::addCabinetBoxPreset,
+          onUpdateCabinet = viewModel::updateFurniture,
+          onDuplicateCabinet = viewModel::duplicateFurniture,
+          onDeleteCabinet = viewModel::deleteFurniture,
+          onOpenMaterials = { viewModel.setActiveTab(StudioTab.MATERIALS) },
+          modifier = Modifier.weight(1f),
+        )
+        StudioTab.ALUMINUM -> AluminumHardwarePanel(
+          specs = state.design.kitchenSpecs,
+          onUpdateSpecs = viewModel::updateKitchenSpecs,
+          onApplyAluminumGlassFrames = viewModel::applyGlassFramesToUpperCabinets,
+          modifier = Modifier.weight(1f),
+        )
+        StudioTab.GRANITE -> GraniteStonePanel(
+          design = state.design,
+          onSelectSlab = viewModel::applyLebaneseGranite,
+          onUpdateSpecs = viewModel::updateKitchenSpecs,
+          modifier = Modifier.weight(1f),
+        )
+        StudioTab.SINK_PULLOUT -> SinkPulloutPanel(
+          specs = state.design.kitchenSpecs,
+          onUpdateSpecs = viewModel::updateKitchenSpecs,
+          onToggleOrganizer = viewModel::toggleOrganizer,
           modifier = Modifier.weight(1f),
         )
         StudioTab.FURNITURE -> FurniturePanel(
@@ -591,6 +858,10 @@ private fun StudioControlPanel(
           onApplyMaterial = viewModel::applyMaterialToTarget,
           onUpdateFinishOnly = viewModel::updateTargetFinishOnly,
           onUpdateHexOnly = viewModel::updateTargetHexOnly,
+          selectedMfcGrade = state.design.kitchenSpecs.mfcBoardGrade,
+          onSelectMfcGrade = { grade ->
+            viewModel.updateKitchenSpecs { it.copy(mfcBoardGrade = grade) }
+          },
           modifier = Modifier.weight(1f),
         )
         StudioTab.RENDER -> StudioExportPanel(

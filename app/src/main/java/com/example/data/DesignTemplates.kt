@@ -16,6 +16,7 @@ data class MaterialSwatch(
   val name: String,
   val finish: MaterialFinish,
   val hexColor: String,
+  val decorTag: String = "",
 )
 
 data class RoomTemplate(
@@ -31,17 +32,40 @@ object DesignTemplates {
   val swatchesByCategory: Map<MaterialCategory, List<MaterialSwatch>> = mapOf(
     MaterialCategory.PAINT to listOf(
       MaterialSwatch("Warm Alabaster", MaterialFinish.MATTE_PAINT, "#F4F1EA"),
+      MaterialSwatch("Cashmere Cream", MaterialFinish.MATTE_PAINT, "#E5DDD0"),
       MaterialSwatch("Soft Greige", MaterialFinish.MATTE_PAINT, "#CFC8BC"),
+      MaterialSwatch("Desert Taupe", MaterialFinish.SATIN_PAINT, "#B8A99A"),
       MaterialSwatch("Sage Mist", MaterialFinish.SATIN_PAINT, "#9FB3A2"),
+      MaterialSwatch("Emerald Teal", MaterialFinish.SATIN_PAINT, "#2C6B63"),
       MaterialSwatch("Olive Grove", MaterialFinish.SATIN_PAINT, "#5B6D5B"),
       MaterialSwatch("Terracotta Clay", MaterialFinish.MATTE_PAINT, "#C96A4B"),
+      MaterialSwatch("Dusty Rose", MaterialFinish.MATTE_PAINT, "#C49792"),
+      MaterialSwatch("Espresso Mocha", MaterialFinish.MATTE_PAINT, "#544239"),
       MaterialSwatch("Dusty Navy", MaterialFinish.SATIN_PAINT, "#2D3E50"),
+      MaterialSwatch("Midnight Blue", MaterialFinish.SATIN_PAINT, "#1E2D3D"),
       MaterialSwatch("Charcoal Slate", MaterialFinish.MATTE_PAINT, "#363B40"),
       MaterialSwatch("Crisp Lacquer", MaterialFinish.GLOSSY_PAINT, "#FAF8F4"),
+    ),
+    MaterialCategory.STARWOOD_MFC to listOf(
+      MaterialSwatch("Starwood Snow White", MaterialFinish.MFC_MELAMINE, "#F5F4F0", "Uni"),
+      MaterialSwatch("Starwood Cashmere", MaterialFinish.MFC_MELAMINE, "#D9CFC3", "Uni"),
+      MaterialSwatch("Starwood Latte Sand", MaterialFinish.MFC_MELAMINE, "#C7B8A5", "Uni"),
+      MaterialSwatch("Starwood Sage Olive", MaterialFinish.MFC_MELAMINE, "#7F917F", "Uni"),
+      MaterialSwatch("Starwood Petrol Teal", MaterialFinish.MFC_MELAMINE, "#34595E", "Uni"),
+      MaterialSwatch("Starwood Anthracite", MaterialFinish.MFC_MELAMINE, "#46494E", "Uni"),
+      MaterialSwatch("Starwood Graphite", MaterialFinish.MFC_MELAMINE, "#2B2D30", "Uni"),
+      MaterialSwatch("Starwood Midnight", MaterialFinish.MFC_MELAMINE, "#253140", "Uni"),
+      MaterialSwatch("Starwood Sonoma Oak", MaterialFinish.MFC_WOOD, "#C7A77F", "Wood"),
+      MaterialSwatch("Starwood Riviera Oak", MaterialFinish.MFC_WOOD, "#B08558", "Wood"),
+      MaterialSwatch("Starwood Atlantic Walnut", MaterialFinish.MFC_WOOD, "#6A4832", "Wood"),
+      MaterialSwatch("Starwood Smoked Ash", MaterialFinish.MFC_WOOD, "#544A44", "Wood"),
+      MaterialSwatch("Starwood Urban Concrete", MaterialFinish.MFC_MELAMINE, "#8E9296", "Fantasy"),
+      MaterialSwatch("Starwood Linen Textile", MaterialFinish.MFC_MELAMINE, "#CEC7BA", "Fantasy"),
     ),
     MaterialCategory.WOOD to listOf(
       MaterialSwatch("Natural White Oak", MaterialFinish.WOOD_OAK, "#C8A57B"),
       MaterialSwatch("Honey Oak", MaterialFinish.WOOD_OAK, "#B4834E"),
+      MaterialSwatch("Caramel Teak", MaterialFinish.WOOD_OAK, "#9E693F"),
       MaterialSwatch("American Walnut", MaterialFinish.WOOD_WALNUT, "#5C3D28"),
       MaterialSwatch("Smoked Espresso", MaterialFinish.WOOD_WALNUT, "#3E2C23"),
       MaterialSwatch("Scandi Beech", MaterialFinish.WOOD_BEECH, "#DFC29B"),
@@ -49,8 +73,10 @@ object DesignTemplates {
     ),
     MaterialCategory.STONE to listOf(
       MaterialSwatch("Carrara White Marble", MaterialFinish.MARBLE_WHITE, "#F2EFE9"),
+      MaterialSwatch("Statuario Gold", MaterialFinish.MARBLE_WHITE, "#F7F4EC"),
       MaterialSwatch("Calacatta Gold Quartz", MaterialFinish.QUARTZ_CREAM, "#EBE4D6"),
       MaterialSwatch("Warm Travertine", MaterialFinish.QUARTZ_CREAM, "#DDD1BE"),
+      MaterialSwatch("Pietra Grey", MaterialFinish.DARK_STONE, "#4B4E53"),
       MaterialSwatch("Nero Marquina", MaterialFinish.DARK_STONE, "#2D3034"),
       MaterialSwatch("Concrete Slate", MaterialFinish.DARK_STONE, "#6E7175"),
     ),
@@ -64,7 +90,9 @@ object DesignTemplates {
     MaterialCategory.FABRIC to listOf(
       MaterialSwatch("Bouclé Cream", MaterialFinish.FABRIC_WOVEN, "#EFECE4"),
       MaterialSwatch("Oatmeal Linen", MaterialFinish.FABRIC_WOVEN, "#CFC6B7"),
+      MaterialSwatch("Warm Camel", MaterialFinish.FABRIC_WOVEN, "#B48A64"),
       MaterialSwatch("Rust Velvet", MaterialFinish.FABRIC_WOVEN, "#B8593B"),
+      MaterialSwatch("Emerald Velvet", MaterialFinish.FABRIC_WOVEN, "#2E5A4F"),
       MaterialSwatch("Forest Moss", MaterialFinish.FABRIC_WOVEN, "#466353"),
       MaterialSwatch("Deep Charcoal", MaterialFinish.FABRIC_WOVEN, "#3D4147"),
       MaterialSwatch("Powder Blue", MaterialFinish.FABRIC_WOVEN, "#7C93A6"),
@@ -73,6 +101,8 @@ object DesignTemplates {
       MaterialSwatch("Brushed Stainless", MaterialFinish.BRUSHED_METAL, "#C4C9CF"),
       MaterialSwatch("Warm Brushed Brass", MaterialFinish.BRUSHED_METAL, "#C9A55A"),
       MaterialSwatch("Champagne Bronze", MaterialFinish.BRUSHED_METAL, "#A88B68"),
+      MaterialSwatch("Rose Gold", MaterialFinish.BRUSHED_METAL, "#C58F84"),
+      MaterialSwatch("Gunmetal Graphite", MaterialFinish.BRUSHED_METAL, "#4D535B"),
       MaterialSwatch("Matte Black Steel", MaterialFinish.BRUSHED_METAL, "#2C2F33"),
     ),
   )
@@ -576,6 +606,7 @@ object DesignTemplates {
       rotationDeg = 0f,
       material = kind.defaultMaterial,
       secondaryMaterial = kind.defaultSecondaryMaterial,
+      style = kind.defaultStyle,
     )
   }
 }

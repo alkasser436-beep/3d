@@ -1,8 +1,10 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,17 +33,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.model.CameraPreset
 import com.example.model.LightingPreset
 import com.example.model.RoomDesign
+import com.example.ui.i18n.LocalAppStrings
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -61,24 +68,47 @@ fun StudioExportPanel(
   onOpenProjectsDialog: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalAppStrings.current
   Column(
     modifier = modifier
       .verticalScroll(rememberScrollState())
       .padding(16.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
-    Button(
-      onClick = onAiPhotoRender,
-      enabled = !isAiRendering,
-      shape = RoundedCornerShape(14.dp),
+    Surface(
+      shape = RoundedCornerShape(16.dp),
+      color = Color.Transparent,
+      shadowElevation = 4.dp,
       modifier = Modifier
         .fillMaxWidth()
-        .height(50.dp)
+        .height(52.dp)
+        .clip(RoundedCornerShape(16.dp))
+        .background(
+          Brush.horizontalGradient(
+            listOf(
+              MaterialTheme.colorScheme.primary,
+              MaterialTheme.colorScheme.tertiary,
+            ),
+          ),
+          alpha = if (isAiRendering) 0.6f else 1f,
+        )
+        .clickable(enabled = !isAiRendering, onClick = onAiPhotoRender)
         .testTag("ai_photo_render_panel_button"),
     ) {
-      Icon(Icons.Outlined.AutoAwesome, contentDescription = null)
-      Spacer(Modifier.width(8.dp))
-      Text(if (isAiRendering) "Rendering Real Interior Photo..." else "AI Real Photo Render (DSLR Realism)")
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+      ) {
+        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = Color.White)
+        Spacer(Modifier.width(8.dp))
+        Text(
+          text = if (isAiRendering) strings.aiRenderingBtn else strings.aiRenderBtn,
+          style = MaterialTheme.typography.labelLarge,
+          fontWeight = FontWeight.SemiBold,
+          color = Color.White,
+        )
+      }
     }
 
     FilledTonalButton(
@@ -91,21 +121,21 @@ fun StudioExportPanel(
     ) {
       Icon(Icons.Outlined.CameraAlt, contentDescription = null)
       Spacer(Modifier.width(8.dp))
-      Text("Snap Corner Eye-Level + 3D Lights")
+      Text(strings.snapCornerBtn)
     }
 
     // Realistic View Toggle Card
     Card(
       colors = CardDefaults.cardColors(
         containerColor = if (design.realisticView) {
-          MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+          MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
         } else {
           MaterialTheme.colorScheme.surface
         },
       ),
       border = BorderStroke(
         width = if (design.realisticView) 1.5.dp else 1.dp,
-        color = if (design.realisticView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+        color = if (design.realisticView) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outlineVariant,
       ),
       shape = RoundedCornerShape(16.dp),
       modifier = Modifier
@@ -121,21 +151,32 @@ fun StudioExportPanel(
           verticalAlignment = Alignment.CenterVertically,
           modifier = Modifier.weight(1f),
         ) {
-          Icon(
-            Icons.Outlined.AutoAwesome,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp),
-          )
+          Box(
+            modifier = Modifier
+              .size(40.dp)
+              .clip(RoundedCornerShape(12.dp))
+              .background(
+                if (design.realisticView) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.16f)
+                else MaterialTheme.colorScheme.surfaceVariant,
+              ),
+            contentAlignment = Alignment.Center,
+          ) {
+            Icon(
+              Icons.Outlined.AutoAwesome,
+              contentDescription = null,
+              tint = if (design.realisticView) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(22.dp),
+            )
+          }
           Spacer(Modifier.width(12.dp))
           Column {
             Text(
-              text = "Realistic View Mode",
+              text = strings.realisticViewModeTitle,
               style = MaterialTheme.typography.titleSmall,
               fontWeight = FontWeight.SemiBold,
             )
             Text(
-              text = "SSAO contact shadows, bump normals, reflections & bloom",
+              text = strings.realisticViewModeSub,
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -152,8 +193,8 @@ fun StudioExportPanel(
 
     // Lighting Presets
     SectionTitle(
-      title = "Lighting Atmosphere",
-      subtitle = "Selecting a preset enables Realistic View automatically",
+      title = strings.lightingAtmoTitle,
+      subtitle = strings.lightingAtmoSub,
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -164,19 +205,29 @@ fun StudioExportPanel(
           LightingPreset.GOLDEN_HOUR -> Icons.Outlined.WbTwilight
           LightingPreset.INDOOR_SPOTLIGHTS -> Icons.Outlined.Nightlight
         }
+        val accentColor = when (preset) {
+          LightingPreset.DAYLIGHT -> MaterialTheme.colorScheme.primary
+          LightingPreset.GOLDEN_HOUR -> MaterialTheme.colorScheme.secondary
+          LightingPreset.INDOOR_SPOTLIGHTS -> MaterialTheme.colorScheme.tertiary
+        }
+        val accentContainer = when (preset) {
+          LightingPreset.DAYLIGHT -> MaterialTheme.colorScheme.primaryContainer
+          LightingPreset.GOLDEN_HOUR -> MaterialTheme.colorScheme.secondaryContainer
+          LightingPreset.INDOOR_SPOTLIGHTS -> MaterialTheme.colorScheme.tertiaryContainer
+        }
         Card(
           colors = CardDefaults.cardColors(
             containerColor = if (selected) {
-              MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+              accentContainer.copy(alpha = 0.55f)
             } else {
               MaterialTheme.colorScheme.surface
             },
           ),
           border = BorderStroke(
             width = if (selected) 1.5.dp else 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant,
+            color = if (selected) accentColor else MaterialTheme.colorScheme.outlineVariant,
           ),
-          shape = RoundedCornerShape(12.dp),
+          shape = RoundedCornerShape(14.dp),
           modifier = Modifier
             .fillMaxWidth()
             .clickable { onSelectLightingPreset(preset) }
@@ -186,15 +237,23 @@ fun StudioExportPanel(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            Icon(
-              icon,
-              contentDescription = null,
-              tint = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.size(22.dp),
-            )
+            Box(
+              modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(accentContainer.copy(alpha = 0.7f)),
+              contentAlignment = Alignment.Center,
+            ) {
+              Icon(
+                icon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(20.dp),
+              )
+            }
             Spacer(Modifier.width(12.dp))
             Column {
-              Text(preset.displayName, style = MaterialTheme.typography.labelLarge)
+              Text(preset.displayName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
               Text(
                 preset.subtitle,
                 style = MaterialTheme.typography.bodySmall,
@@ -209,7 +268,7 @@ fun StudioExportPanel(
     // Fine Light Controls
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
       Text(
-        text = "Sun Direction (${design.sunAzimuthDeg.roundToInt()}°)",
+        text = "${strings.sunDirectionLabel} (${design.sunAzimuthDeg.roundToInt()}°)",
         style = MaterialTheme.typography.bodySmall,
       )
       Slider(
@@ -220,7 +279,7 @@ fun StudioExportPanel(
       )
 
       Text(
-        text = String.format(Locale.US, "Exposure (%.2f)", design.exposure),
+        text = String.format(Locale.US, "${strings.exposureLabel} (%.2f)", design.exposure),
         style = MaterialTheme.typography.bodySmall,
       )
       Slider(
@@ -233,8 +292,8 @@ fun StudioExportPanel(
 
     // Camera Presets
     SectionTitle(
-      title = "Camera Views",
-      subtitle = "Drag to orbit, pinch to zoom, two-finger drag to pan",
+      title = strings.cameraViewsTitle,
+      subtitle = strings.cameraViewsSub,
     )
 
     Row(
@@ -261,7 +320,7 @@ fun StudioExportPanel(
               modifier = Modifier.size(16.dp),
             )
             Spacer(Modifier.width(4.dp))
-            Text(preset.label, style = MaterialTheme.typography.labelSmall)
+            Text(strings.cameraPresetLabel(preset), style = MaterialTheme.typography.labelSmall)
           }
         } else {
           OutlinedButton(
@@ -271,7 +330,7 @@ fun StudioExportPanel(
               .weight(1f)
               .testTag("cam_${preset.name.lowercase()}"),
           ) {
-            Text(preset.label, style = MaterialTheme.typography.labelSmall)
+            Text(strings.cameraPresetLabel(preset), style = MaterialTheme.typography.labelSmall)
           }
         }
       }
@@ -279,8 +338,8 @@ fun StudioExportPanel(
 
     // Export & Projects
     SectionTitle(
-      title = "Export & Save",
-      subtitle = "High-res PNG snapshots & local JSON backups",
+      title = strings.exportSaveTitle,
+      subtitle = strings.exportSaveSub,
     )
 
     Button(
@@ -294,7 +353,7 @@ fun StudioExportPanel(
     ) {
       Icon(Icons.Outlined.CameraAlt, contentDescription = null)
       Spacer(Modifier.width(8.dp))
-      Text(if (isCapturingSnapshot) "Rendering 1920p PNG..." else "Export High-Res PNG Snapshot")
+      Text(if (isCapturingSnapshot) strings.renderingPngBtn else strings.exportPngBtn)
     }
 
     OutlinedButton(
@@ -307,7 +366,7 @@ fun StudioExportPanel(
     ) {
       Icon(Icons.Outlined.FolderOpen, contentDescription = null)
       Spacer(Modifier.width(8.dp))
-      Text("Saved Projects & JSON Import/Export")
+      Text(strings.savedProjectsBtn)
     }
 
     Spacer(Modifier.height(12.dp))

@@ -1,14 +1,22 @@
 package com.example.data
 
+import com.example.model.AluminumFinish
+import com.example.model.CabinetStyle
+import com.example.model.FaucetStyle
 import com.example.model.FurnitureItem
 import com.example.model.FurnitureKind
+import com.example.model.KitchenSpecs
+import com.example.model.LebaneseOrganizer
 import com.example.model.LengthUnit
 import com.example.model.LightingPreset
 import com.example.model.MaterialFinish
+import com.example.model.MfcBoardGrade
 import com.example.model.OpeningType
+import com.example.model.ProfileHandleType
 import com.example.model.RoomDesign
 import com.example.model.RoomType
 import com.example.model.SelectionTarget
+import com.example.model.SinkType
 import com.example.model.SurfaceMaterial
 import com.example.model.WallId
 import com.example.model.WallOpening
@@ -98,10 +106,37 @@ object DesignSerializer {
       if (item.secondaryMaterial != null) {
         f.put("secondaryMaterial", materialToJson(item.secondaryMaterial))
       }
+      f.put("style", item.style.name)
+      f.put("showDoors", item.showDoors)
+      f.put("showDrawers", item.showDrawers)
+      f.put("showHandles", item.showHandles)
       furnArr.put(f)
     }
     obj.put("furniture", furnArr)
+    obj.put("kitchenSpecs", kitchenSpecsToJson(d.kitchenSpecs))
     return obj
+  }
+
+  private fun kitchenSpecsToJson(k: KitchenSpecs): JSONObject = JSONObject().apply {
+    put("handleType", k.handleType.name)
+    put("aluminumFinish", k.aluminumFinish.name)
+    put("aluminumHex", k.aluminumFinish.hexColor)
+    put("aluminumPlinth", k.aluminumPlinth)
+    put("underCabinetLed", k.underCabinetLed)
+    put("softCloseHardware", k.softCloseHardware)
+    put("countertopThicknessCm", k.countertopThicknessCm)
+    put("countertopPolished", k.countertopPolished)
+    put("sinkType", k.sinkType.name)
+    put("sinkWidthM", k.sinkType.widthMeters.toDouble())
+    put("sinkDoubleBowl", k.sinkType.doubleBowl)
+    put("sinkIsBlackGranite", k.sinkType.isBlackGranite)
+    put("faucetStyle", k.faucetStyle.name)
+    put("faucetIsBlack", k.faucetStyle.isBlack)
+    put("faucetIsSpringChef", k.faucetStyle.isSpringChef)
+    put("mfcBoardGrade", k.mfcBoardGrade.name)
+    val orgArr = JSONArray()
+    k.organizers.forEach { orgArr.put(it.name) }
+    put("organizers", orgArr)
   }
 
   fun designFromJsonString(json: String): RoomDesign? = runCatching {
@@ -148,6 +183,10 @@ object DesignSerializer {
           secondaryMaterial = if (f.has("secondaryMaterial")) {
             materialFromJson(f.optJSONObject("secondaryMaterial"), kind.defaultSecondaryMaterial ?: kind.defaultMaterial)
           } else null,
+          style = enumOrDefault(f.optString("style"), kind.defaultStyle),
+          showDoors = f.optBoolean("showDoors", true),
+          showDrawers = f.optBoolean("showDrawers", true),
+          showHandles = f.optBoolean("showHandles", false),
         )
       )
     }
@@ -170,8 +209,36 @@ object DesignSerializer {
       lightingPreset = lighting,
       sunAzimuthDeg = obj.optDouble("sunAzimuthDeg", 42.0).toFloat(),
       exposure = obj.optDouble("exposure", 1.08).toFloat().coerceIn(0.6f, 1.8f),
+      kitchenSpecs = kitchenSpecsFromJson(obj.optJSONObject("kitchenSpecs")),
     )
   }.getOrNull()
+
+  private fun kitchenSpecsFromJson(obj: JSONObject?): KitchenSpecs {
+    if (obj == null) return KitchenSpecs()
+    val orgSet = mutableSetOf<LebaneseOrganizer>()
+    val orgArr = obj.optJSONArray("organizers")
+    if (orgArr != null) {
+      for (i in 0 until orgArr.length()) {
+        val name = orgArr.optString(i)
+        LebaneseOrganizer.entries.firstOrNull { it.name == name }?.let { orgSet.add(it) }
+      }
+    } else {
+      orgSet.addAll(KitchenSpecs().organizers)
+    }
+    return KitchenSpecs(
+      handleType = enumOrDefault(obj.optString("handleType"), ProfileHandleType.PROFILE_EDGE),
+      aluminumFinish = enumOrDefault(obj.optString("aluminumFinish"), AluminumFinish.MATTE_BLACK),
+      aluminumPlinth = obj.optBoolean("aluminumPlinth", true),
+      underCabinetLed = obj.optBoolean("underCabinetLed", true),
+      softCloseHardware = obj.optBoolean("softCloseHardware", true),
+      countertopThicknessCm = obj.optInt("countertopThicknessCm", 3).coerceIn(2, 5),
+      countertopPolished = obj.optBoolean("countertopPolished", true),
+      sinkType = enumOrDefault(obj.optString("sinkType"), SinkType.SINGLE_STEEL_60),
+      faucetStyle = enumOrDefault(obj.optString("faucetStyle"), FaucetStyle.SPRING_CHEF_STEEL),
+      mfcBoardGrade = enumOrDefault(obj.optString("mfcBoardGrade"), MfcBoardGrade.P7_MOISTURE_RESISTANT),
+      organizers = orgSet,
+    )
+  }
 
   private fun materialToJson(m: SurfaceMaterial): JSONObject = JSONObject().apply {
     put("finish", m.finish.name)

@@ -703,7 +703,7 @@
         skyColor: [0.88, 0.93, 1.04],
         groundColor: [0.54, 0.50, 0.46],
         pointColor: [1.22, 0.92, 0.60],
-        bg: design.realisticView ? [0.14, 0.16, 0.19] : [0.93, 0.92, 0.90]
+        bg: design.realisticView ? [0.11, 0.14, 0.18] : [0.92, 0.94, 0.96]
       };
     }
 

@@ -1,6 +1,6 @@
 # RoomCraft 3D
 
-**RoomCraft 3D** is an Android interior design application built with **Kotlin**, **Jetpack Compose (Material 3)**, an embedded **WebGL2** real-time 3D architectural renderer, and **Firebase AI Logic** for photorealistic DSLR-style interior rendering.
+**RoomCraft 3D** is a trilingual (**العربية / English / Français**) Android interior & kitchen design application built with **Kotlin**, **Jetpack Compose (Material 3)**, an embedded **WebGL2** real-time 3D architectural renderer, and **Firebase AI Logic** for photorealistic DSLR-style interior rendering.
 
 ## Key Features
 
@@ -8,30 +8,34 @@
   - Configure room dimensions in meters (`m`) or centimeters (`cm`): Width, Length, and Wall Height.
   - Supports **Kitchen**, **Bedroom**, and **Living Room** layouts with preset room templates.
   - Live procedural generation of walls, floors, ceilings, baseboards, crown molding, recessed downlights, and interactive doors/windows.
-- **Interactive Furniture & Cabinetry**
-  - Place and customize L-shape and straight kitchen counters, kitchen islands, handleless upper cabinets with dark glass strips, tall pantries/fridges, beds, wardrobes, nightstands, dressers, sofas, coffee tables, TV consoles, dining tables, rugs, and lamps.
-  - Edit dimensions (`W / D / H`), `X / Y / Z` coordinates, and rotation, or tap elements directly in 3D.
-- **Real-World Colors & Materials**
-  - Procedural PBR surface textures with height-map bump normals across Paint (Matte, Satin, Glossy), Wood (Oak, Walnut, Beech), Stone (Carrara Marble, Calacatta Quartz, Nero Slate), Ceramic Subway Tiles, Woven Fabric, and Brushed Metal, plus custom Hex color matching.
+- **Modular Cabinet Boxes, Doors & Drawers**
+  - Customize cabinet width, depth, height, elevation, position, and rotation.
+  - Toggle doors/shutters (open shelving vs closed cabinets), drawers, and metal/profile handles, or switch between base, wall, tall pantry, corner, and glass-front shapes.
+- **Lebanese Market Kitchen Specifications**
+  - **Aluminum & Profile Handles**: Gola C/J/L channels, edge pulls, anodized finishes, waterproof aluminum plinth, under-cabinet 3000K LED strip, and hydraulic soft-close hinges.
+  - **Granite, Marble & Quartz Slabs**: Lebanese market stone slabs with 2cm/3cm/4cm thickness and Polished / Honed finishes.
+  - **Sinks, Faucets & Pull-Outs**: Inox 304 and Black Granite composite single/double bowls, pull-down mixers, spice pull-outs, tall pantry columns, magic corners, and dishwashers.
+- **Starwood MFC & Real-World Materials**
+  - Official **Starwood MFC (P2 Regular & P7 Moisture Resistant)** Uni, Wood, and Fantasy decors alongside procedural PBR Paint, Wood, Stone, Tile, Fabric, and Metal finishes plus an interactive HSV + Hex color matcher.
 - **Realistic View & AI Photorealistic Render**
   - **Client-Side WebGL2 Realistic View**: 2048px soft PCF shadows, depth-based SSAO, box-projected reflections, bloom, ACES filmic tone mapping, and Daylight / Golden Hour / Indoor Spotlights presets.
-  - **AI Real Photo Render**: Transforms any 3D viewport camera angle into a photorealistic interior photograph using Firebase AI Logic (`gemini-nano-banana-2.1`) with Before/After comparison and high-resolution PNG save/share.
-- **Undo/Redo & Local Persistence**
-  - 40-step undo/redo history, local project slots, automatic draft saving, and JSON import/export via Android Storage Access Framework.
+  - **AI Real Photo Render**: Transforms the active 3D viewport into a photorealistic interior photo via Firebase AI Logic (`gemini-nano-banana-2.1`) with Before/After toggle and PNG save/share.
 
-## Tech Stack
+## Building on GitHub Actions
 
-- **UI**: Kotlin, Jetpack Compose, Material Design 3
-- **3D Engine**: Custom WebGL2 / GLSL ES 3.00 engine (`app/src/main/assets/`)
-- **AI**: Firebase AI Logic (`com.google.firebase:firebase-ai`) + Firebase App Check
-- **Architecture**: MVVM with `StateFlow` and `SharedFlow`
+Every push or pull request to `main` / `master` runs the **Android CI** workflow (`.github/workflows/main.yml`) to execute unit tests and assemble the signed Debug APK (`roomcraft3d-debug-apk` artifact).
 
-## Building & Setup
+You can also trigger a manual build anytime from the repository **Actions** tab (**Build & Test Debug APK -> Run workflow**) and download the resulting `.apk` from the workflow summary page.
+
+## Local Build & Testing
 
 1. Clone the repository and open the root directory in **Android Studio**.
 2. Ensure `app/google-services.json` matches your Firebase project with **Firebase AI Logic** and **App Check** configured (image generation requires the Firebase Blaze plan).
-3. Sync Gradle and run the `app` configuration on Android 7.0+ (API 24+, targetSdk 36).
-4. Run unit tests locally (via Android Studio or Gradle CLI):
+3. Run unit tests locally:
    ```bash
    gradle :app:testDebugUnitTest --tests "com.example.DesignUnitTests" --tests "com.example.ExampleUnitTest"
+   ```
+4. Assemble the Debug APK locally:
+   ```bash
+   gradle :app:assembleDebug
    ```

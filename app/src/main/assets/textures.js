@@ -65,12 +65,15 @@
       case 'MATTE_PAINT': return { roughness: 0.88, metalness: 0.0, bump: 0.35 };
       case 'SATIN_PAINT': return { roughness: 0.42, metalness: 0.0, bump: 0.22 };
       case 'GLOSSY_PAINT': return { roughness: 0.12, metalness: 0.04, bump: 0.08 };
+      case 'MFC_MELAMINE': return { roughness: 0.34, metalness: 0.02, bump: 0.14 };
+      case 'MFC_WOOD': return { roughness: 0.40, metalness: 0.0, bump: 0.55 };
       case 'WOOD_OAK': return { roughness: 0.48, metalness: 0.0, bump: 0.95 };
       case 'WOOD_WALNUT': return { roughness: 0.38, metalness: 0.0, bump: 0.90 };
       case 'WOOD_BEECH': return { roughness: 0.52, metalness: 0.0, bump: 0.85 };
       case 'MARBLE_WHITE': return { roughness: 0.14, metalness: 0.02, bump: 0.18 };
       case 'QUARTZ_CREAM': return { roughness: 0.18, metalness: 0.02, bump: 0.16 };
       case 'DARK_STONE': return { roughness: 0.28, metalness: 0.05, bump: 0.45 };
+      case 'GRANITE_SPECKLED': return { roughness: 0.14, metalness: 0.08, bump: 0.28 };
       case 'CERAMIC_TILE': return { roughness: 0.15, metalness: 0.03, bump: 1.25 };
       case 'FABRIC_WOVEN': return { roughness: 0.92, metalness: 0.0, bump: 1.25 };
       case 'BRUSHED_METAL': return { roughness: 0.24, metalness: 0.90, bump: 0.45 };
@@ -107,8 +110,8 @@
       return canvas;
     }
 
-    if (finish === 'MATTE_PAINT' || finish === 'SATIN_PAINT' || finish === 'GLOSSY_PAINT') {
-      const grainAmp = finish === 'MATTE_PAINT' ? 6 : finish === 'SATIN_PAINT' ? 4 : 2;
+    if (finish === 'MATTE_PAINT' || finish === 'SATIN_PAINT' || finish === 'GLOSSY_PAINT' || finish === 'MFC_MELAMINE') {
+      const grainAmp = finish === 'MATTE_PAINT' ? 6 : finish === 'SATIN_PAINT' ? 4 : finish === 'MFC_MELAMINE' ? 3 : 2;
       for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
           const i = (y * size + x) * 4;
@@ -118,6 +121,23 @@
           d[i + 1] = clamp(base.g + plaster + micro, 0, 255);
           d[i + 2] = clamp(base.b + plaster + micro, 0, 255);
           d[i + 3] = clamp(128 + (plaster + micro) * 5, 0, 255);
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    } else if (finish === 'MFC_WOOD') {
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const idx = (y * size + x) * 4;
+          const nx = x * 0.14;
+          const ny = y * 0.022;
+          const warp = fbm(nx * 0.2, ny * 0.9, 3) * 3.8;
+          const ring = Math.sin((nx * 0.45 + warp) * Math.PI);
+          const fine = (hash2(x * 1.6, y * 0.4) - 0.5) * 0.08;
+          const tone = ring * 0.10 + fine;
+          d[idx] = clamp(base.r * (1 + tone), 0, 255);
+          d[idx + 1] = clamp(base.g * (1 + tone * 0.94), 0, 255);
+          d[idx + 2] = clamp(base.b * (1 + tone * 0.86), 0, 255);
+          d[idx + 3] = clamp(150 + ring * 38 + fine * 70, 70, 255);
         }
       }
       ctx.putImageData(img, 0, 0);
@@ -165,6 +185,24 @@
           d[idx + 1] = clamp(base.g + delta * 0.95 + cloud + fleck, 0, 255);
           d[idx + 2] = clamp(base.b + delta * 0.9 + cloud + fleck, 0, 255);
           d[idx + 3] = clamp(150 - vein * 45 + cloud * 1.5, 40, 255);
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    } else if (finish === 'GRANITE_SPECKLED') {
+      const isDarkGranite = (base.r + base.g + base.b) / 3 < 110;
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const idx = (y * size + x) * 4;
+          const crystal = fbm(x * 0.18, y * 0.18, 3);
+          const grain = (hash2(x * 1.7, y * 1.7) - 0.5) * 28;
+          const mica = hash2(x * 3.1, y * 2.9);
+          const sparkle = mica > 0.965 ? (isDarkGranite ? 68 : -44) : mica < 0.03 ? -26 : 0;
+          const goldHint = (isDarkGranite && mica > 0.985) ? 24 : 0;
+          const delta = (crystal - 0.5) * 24 + grain + sparkle;
+          d[idx] = clamp(base.r + delta + goldHint, 0, 255);
+          d[idx + 1] = clamp(base.g + delta + goldHint * 0.75, 0, 255);
+          d[idx + 2] = clamp(base.b + delta * 0.96, 0, 255);
+          d[idx + 3] = clamp(150 + grain * 1.2 + (mica > 0.96 ? 40 : 0), 40, 255);
         }
       }
       ctx.putImageData(img, 0, 0);
