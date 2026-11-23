@@ -22,8 +22,12 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          printf "24333f8a63b6825ea9c5514f83c2829b004d1fee\n84831b9409646a918e30573bab4c9c91346d8abd\n" > "$ANDROID_HOME/licenses/android-sdk-license"
+          printf "e9acab5b5fbb560a72cfaecce8946896ff6aab9d\n" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
 
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
