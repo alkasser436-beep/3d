@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">RoomCraft 3D</string>
+    <string name="cd_undo">Undo last change</string>
+    <string name="cd_redo">Redo change</string>
+    <string name="cd_realistic_view">Toggle Realistic View rendering</string>
+    <string name="cd_snapshot">Capture high-resolution PNG snapshot</string>
+    <string name="cd_projects">Open saved designs and export menu</string>
+    <string name="cd_toggle_panel">Toggle studio control panel</string>
+    <string name="cd_fullscreen_3d">Toggle fullscreen 3D viewport</string>
+    <string name="cd_rotate_90">Rotate item 90 degrees</string>
+    <string name="cd_duplicate_item">Duplicate selected item</string>
+    <string name="cd_delete_item">Delete selected item</string>
+</resources>

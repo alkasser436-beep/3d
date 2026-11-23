@@ -1,0 +1,6 @@
+{
+  "name": "RoomCraft 3D",
+  "description": "Free interactive 3D interior design studio for kitchens, bedrooms, and living rooms with real-world materials and client-side realistic lighting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
